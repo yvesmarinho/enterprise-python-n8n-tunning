@@ -1,0 +1,676 @@
+# Configuracao MCP para projeto enterprise-python-n8n-tunning
+# Gerado a partir de docs/objetivo.yaml — sincronizado em 2026-04-01
+
+metadata:
+  project_name: "enterprise-python-n8n-tunning"
+  project_type: "infrastructure"
+  domain: "devops"
+  primary_language: "python"
+  automation_languages:
+    - "python"
+    - "ansible"
+  template_type: "enterprise"
+  generated_from:
+    - "docs/objetivo.yaml"
+    - "docs/n8n_perf_ANA001_20260101_20260331_20260331T154646.md"
+  generated_on: "2026-04-01"
+  last_updated: "2026-04-01"
+
+project_context:
+  description: >
+    Projeto para analisar as propostas de melhorias do
+    'enterprise-python-analysis', verificar configuracoes existentes e aplicar
+    ajustes para melhorar o desempenho do N8N. A analise ANA-001 (90 dias,
+    jan-mar/2026) identificou ofensores de volume (121Labs PABX 429K exec,
+    WhatsApp Gateway 84K exec) e lacunas de instrumentacao (fila, memoria,
+    sub-100ms) como causas raiz. O upgrade versao a versao (2.6.4 -> latest) e
+    uma das acoes do plano.
+  source_version: "2.6.4"
+  target_version: "latest"
+  latest_resolution:
+    source_precedence:
+      - "official_n8n_docker_hub_tags"
+      - "official_n8n_release_notes_fallback"
+    resolved_target_frozen_per_round: true
+    required_evidence:
+      - "source_url"
+      - "resolved_timestamp"
+      - "resolved_version"
+  upgrade_policy: "sequential_version_by_version"
+  skip_versions_allowed: false
+  response_expected: >
+    Documentos e codigos Python e Ansible para: (1) habilitar metricas de fila
+    N8N, (2) purgacao e tunning do PostgreSQL, (3) corrigir dupla coleta
+    Prometheus, (4) automatizar upgrade incremental versao a versao, (5) probe
+    sintetico end-to-end.
+  workflow_reference: "objetivo.yaml -> Copilot -> mcp-questions.yaml -> MCP automatico"
+  infrastructure:
+    proxy: "Traefik — todos os servidores Docker utilizam Traefik como proxy reverso"
+    servers:
+      - hostname: "wf001.vya.digital"
+        ip: "31.220.103.208"
+        role: "Servidor Docker de producao — hospeda o N8N e outros containers de
+          aplicacao"
+        services:
+          - "N8N (container principal — foco deste projeto)"
+          - "prod-collector-api (expoe metricas N8N via scrape direto na porta
+            5001)"
+          - "Outros containers de aplicacao em producao"
+        path_n8n: "/opt/docker_user/n8n"
+        path_docker_default: "/opt/docker_user"
+        notes:
+          - "Ambiente de producao — alteracoes exigem janela de manutencao e
+            backup validado"
+          - "Scrape Prometheus: targets 31.220.103.208:5001, relabeling
+            instance=wf001"
+      - hostname: "wfdb01.vya.digital"
+        ip: "86.48.31.149"
+        role: "Servidor Docker de producao — hospeda a stack Prometheus/VictoriaMetrics"
+        services:
+          - "VictoriaMetrics (armazenamento de metricas — fonte de dados
+            ANA-001)"
+          - "Prometheus (coleta e scrape de metricas)"
+          - "Pushgateway (dupla coleta a corrigir via F18)"
+          - "Outros containers de monitoramento e infraestrutura"
+        path_docker_default: "/opt/docker_user"
+        notes:
+          - "Ambiente de teste do N8N publicado neste servidor, pasta
+            /opt/docker_user/n8n"
+          - "Acesso via SSH SPA conforme .secrets/ssh.json"
+      - hostname: "wfdb02.vya.digital"
+        ip: "82.197.64.145"
+        role: "Servidor de Banco de dados de producao — hospeda o PostgreSQL e MySQL,
+          base de dados do N8N e outros bancos de dados"
+        services:
+          - "PostgreSQL versao 16 — porta 6432"
+          - "Pgbouncer (pool de conexoes para PostgreSQL) — porta 5432"
+          - "MySQL versao 8.4 — porta 3306"
+          - "Node Exporter (monitoramento via Prometheus)"
+          - "Outros containers de monitoramento e infraestrutura"
+        path_docker_default: "/opt/docker_user"
+        notes:
+          - "Banco dedicado de producao — operacoes DDL exigem backup validado"
+          - "F17 (pg_stat_statements, postgres_exporter, pg_dump) executadas
+            neste servidor"
+          - "Acesso via SSH SPA conforme .secrets/ssh.json"
+  test_environment:
+    host: "wfdb01.vya.digital"
+    ip: "86.48.31.149"
+    path: "/opt/docker_user/n8n"
+    ssh_config_reference: ".secrets/ssh.json"
+
+workflow:
+  framework: "Speckit"
+  execution_flow:
+    - "constitution"
+    - "plan"
+    - "tasks"
+    - "implement"
+  stage_gates:
+    - stage: "constitution"
+      acceptance: "Principios, regras e limites de seguranca definidos"
+    - stage: "plan"
+      acceptance: "Plano de upgrade com trilha versao a versao, riscos, rollback e
+        metricas"
+    - stage: "tasks"
+      acceptance: "Tarefas ordenadas por dependencia e criticidade"
+    - stage: "implement"
+      acceptance: "Execucao com evidencias, validacao e rastreabilidade"
+
+folder_structure:
+  - ".vscode - Configuracoes VS Code e MCP (geradas automaticamente)"
+  - ".github - Workflows de GitHub Actions para automacao de CI/CD e AI agents"
+  - "src - Codigo-fonte do projeto (estrutura especifica por tipo)"
+  - ".specify - Speckit framework configuration e templates"
+  - "test - Testes automatizados (framework baseado na linguagem)"
+  - "docs - Documentacao (gerada automaticamente)"
+  - "pattern_code - Templates e padroes de codigo reutilizaveis"
+  - "scripts - Scripts de automacao inteligente"
+  - "objetivo.yaml - Especificacao detalhada do projeto"
+  - "mcp-questions.yaml - Configuracao gerada pelo Copilot"
+
+profiles:
+  - role: "system_architect"
+    skill_level: "expert"
+    description: "Arquiteto em solucoes Docker com Linux Debian 12."
+    focus:
+      - "Estrategia de upgrade entre versoes do n8n (2.6.4 -> latest) com
+        execucao versao a versao"
+      - "Compatibilidade entre imagem, volumes, banco e variaveis de ambiente"
+      - "Definicao de gates tecnicos para promocao entre ambientes"
+    responsibilities:
+      - "Definir arquitetura de atualizacao com rollback seguro"
+      - "Aprovar sequencia de execucao por etapas do workflow Speckit"
+      - "Definir criterios de risco e janela de manutencao"
+    decision_criteria:
+      - "Priorizar disponibilidade e integridade de dados"
+      - "Evitar mudancas nao reversiveis sem backup validado"
+
+  - role: "n8n_specialist"
+    skill_level: "expert"
+    description: "Especialista em n8n e automacao de workflows."
+    focus:
+      - "Quebras de compatibilidade entre versoes do n8n"
+      - "Impacto em nodes, credenciais, executions e filas"
+      - "Validacao funcional de workflows criticos"
+    responsibilities:
+      - "Mapear riscos por versao e notas de release"
+      - "Definir checklist de validacao pos-upgrade"
+      - "Validar comportamento de workflows em ambiente de teste"
+    decision_criteria:
+      - "Zero perda de execucoes e credenciais"
+      - "Sem regressao funcional nos fluxos criticos"
+
+  - role: "devops_engineer"
+    skill_level: "expert"
+    description: "Expert em Python, Ansible e SDD (Specification-Driven Development)."
+    focus:
+      - "Automacao idempotente de atualizacao"
+      - "Padronizacao de scripts e playbooks"
+      - "Implementacao orientada por especificacao (SDD)"
+      - "Coleta de evidencias tecnicas e logs de execucao"
+    responsibilities:
+      - "Especificar automacoes de pre-check, upgrade e pos-check"
+      - "Padronizar variaveis de ambiente e parametros de execucao"
+      - "Garantir rastreabilidade entre especificacao e execucao"
+      - "Garantir reprodutibilidade do processo em multiplos ambientes"
+    decision_criteria:
+      - "Execucao nao interativa e auditavel"
+      - "Conformidade com requisitos definidos na especificacao"
+      - "Falhas tratadas com retorno e acao de recuperacao"
+
+  - role: "devops_automation"
+    skill_level: "advanced"
+    description: "Especialista em DevOps, automacao de workflows de desenvolvimento e SDD."
+    focus:
+      - "Orquestracao do fluxo objetivo.yaml -> mcp-questions.yaml -> MCP"
+      - "Governanca de documentacao e versionamento"
+      - "Adocao de SDD para padronizar decisoes tecnicas"
+      - "Padronizacao dos prompts e artefatos de sessao"
+    responsibilities:
+      - "Garantir consistencia entre especificacao, plano e tarefas"
+      - "Rastrear mudancas e dependencias entre artefatos"
+      - "Assegurar que execucao siga os criterios definidos em spec"
+      - "Definir criterios de completude de cada etapa"
+    decision_criteria:
+      - "Rastreabilidade ponta a ponta das decisoes"
+      - "Priorizar entregas aderentes ao ciclo SDD"
+      - "Documentacao incremental e verificavel"
+
+  - role: "project_manager"
+    skill_level: "advanced"
+    description: "Gestor de projetos com foco em governanca, planejamento e entrega
+      incremental."
+    focus:
+      - "Planejamento de marcos e cronograma do upgrade"
+      - "Gestao de riscos, comunicacao e alinhamento entre perfis"
+      - "Acompanhamento de progresso por criterios de aceite"
+    responsibilities:
+      - "Definir plano de execucao e priorizacao por impacto"
+      - "Gerenciar dependencias, impedimentos e decisoes"
+      - "Garantir visibilidade de status para stakeholders"
+    decision_criteria:
+      - "Maximizar previsibilidade de entrega"
+      - "Reduzir risco operacional durante a janela de mudanca"
+
+  - role: "test_engineer"
+    skill_level: "expert"
+    description: "Engenheiro de testes para validacao funcional, regressao e
+      desempenho da atualizacao."
+    focus:
+      - "Estrategia de testes pre e pos-upgrade"
+      - "Validacao de compatibilidade e regressao a cada versao intermediaria"
+      - "Cobertura de cenarios criticos e regressao"
+      - "Metricas de desempenho e estabilidade"
+    responsibilities:
+      - "Definir matriz de testes por risco e criticidade"
+      - "Executar validacoes funcionais e de compatibilidade"
+      - "Consolidar evidencias de teste para aprovacao de release"
+    decision_criteria:
+      - "Sem regressoes criticas em workflows prioritarios"
+      - "Desempenho e estabilidade dentro de limites aceitaveis"
+
+  - role: "databases_engineer"
+    skill_level: "expert"
+    description: "Engenheiro de bancos de dados para tunning, performance e
+      integridade de dados."
+    focus:
+      - "Tunning e otimizacao das queries SQL do banco PostgreSQL do N8N"
+      - "Analise de indices, planos de execucao e saturacao da tabela
+        execution_entity (429K+ execucoes)"
+      - "Validacao de integridade e consistencia dos dados pre e pos-upgrade do
+        N8N"
+      - "Monitoramento de metricas do banco: conexoes ativas, locks, temps de
+        query e I/O"
+    responsibilities:
+      - "Diagnosticar gargalos no PostgreSQL do N8N com foco na tabela
+        execution_entity"
+      - "Definir e implementar estrategia de purgacao de execucoes historicas
+        (EXECUTIONS_DATA_PRUNE)"
+      - "Ativar e validar pg_stat_statements e postgres_exporter com query stats"
+      - "Garantir backup consistente e testavel do banco antes e apos cada
+        upgrade de versao"
+      - "Documentar alteracoes de schema e migracoes realizadas entre versoes do
+        N8N"
+    decision_criteria:
+      - "Zero perda de dados durante operacoes de upgrade, purgacao ou migracao"
+      - "Tempo de resposta das queries dentro dos limites estabelecidos no
+        relatorio ANA-001"
+      - "Integridade referencial e consistencia dos dados validadas a cada
+        versao intermediaria"
+
+features_implemented:
+  - id: "F01"
+    name: "Fluxo de trabalho inteligente com 5 etapas automatizadas"
+    status: "implemented"
+    scope:
+      - "Conduz o projeto por etapas de descoberta, planejamento e execucao"
+      - "Reduz saltos de contexto e decisoes ad-hoc"
+    acceptance_criteria:
+      - "Cada etapa produz artefato explicito e rastreavel"
+
+  - id: "F02"
+    name: "Sistema de prompts especificos para GitHub Copilot"
+    status: "implemented"
+    scope:
+      - "Padroniza interacao dos agentes por objetivo"
+      - "Aumenta consistencia de saida entre sessoes"
+    acceptance_criteria:
+      - "Prompts orientam entradas, saidas e validacoes esperadas"
+
+  - id: "F03"
+    name: "Template agnostico a tecnologia com adaptacao automatica"
+    status: "implemented"
+    scope:
+      - "Permite uso do framework com stack heterogenea"
+      - "Mantem nucleo de processo sem acoplamento rigido"
+    acceptance_criteria:
+      - "Estrutura-base permanece valida para Python e Ansible"
+
+  - id: "F04"
+    name: "Makefile com 15+ targets seguindo novo fluxo de trabalho"
+    status: "implemented"
+    scope:
+      - "Organiza execucao operacional por comandos previsiveis"
+      - "Centraliza tarefas de rotina e validacao"
+    acceptance_criteria:
+      - "Targets cobrem ciclo de desenvolvimento e QA"
+
+  - id: "F05"
+    name: "Scripts Python inteligentes para geracao de configuracoes"
+    status: "implemented"
+    scope:
+      - "Automatiza geracao de artefatos de configuracao (MCP, SSH, variaveis de
+        ambiente N8N)"
+      - "Reduz erro humano na edicao manual de configs sensiveis"
+      - "Suporta geracao de scripts Ansible e payloads Docker Compose"
+    acceptance_criteria:
+      - "Geracao deterministica para mesma entrada"
+      - "Credenciais e tokens nunca embutidos nos artefatos gerados"
+
+  - id: "F06"
+    name: "Suporte nativo a multiplas linguagens e frameworks"
+    status: "implemented"
+    scope:
+      - "Expande aplicabilidade do template"
+      - "Facilita adocao em cenarios hibridos"
+    acceptance_criteria:
+      - "Regras e estruturas nao bloqueiam adocao multi-stack"
+
+  - id: "F07"
+    name: "Templates de codigo com padroes reStructuredText"
+    status: "implemented"
+    scope:
+      - "Uniformiza docstrings e documentacao tecnica"
+      - "Favorece legibilidade e manutencao"
+    acceptance_criteria:
+      - "Templates contemplam padrao reStructuredText e Doctest"
+
+  - id: "F08"
+    name: "Documentacao automatica baseada na configuracao"
+    status: "implemented"
+    scope:
+      - "Gera documentacao coerente com estado do projeto"
+      - "Reduz divergencia entre pratica e registro"
+    acceptance_criteria:
+      - "Artefatos de docs refletem inputs de configuracao"
+
+  - id: "F09"
+    name: "Configuracao VS Code dinamica e especifica por projeto"
+    status: "implemented"
+    scope:
+      - "Ajusta ambiente de desenvolvimento ao dominio"
+      - "Melhora produtividade e conformidade"
+    acceptance_criteria:
+      - "Configuracao atende padroes definidos por perfil/projeto"
+
+  - id: "F10"
+    name: "Estrutura de pastas extensivel e padronizada"
+    status: "implemented"
+    scope:
+      - "Favorece escalabilidade organizacional"
+      - "Facilita navegacao e manutencao"
+    acceptance_criteria:
+      - "Estrutura suporta crescimento sem refatoracao estrutural"
+
+  - id: "F11"
+    name: "Sistema de geracao de HISTORICO.md cronologico para callback de sessoes"
+    status: "implemented"
+    scope:
+      - "Registra evolucao de decisoes e acoes"
+      - "Permite retomada de contexto com baixa friccao"
+    acceptance_criteria:
+      - "Entradas cronologicas mantem rastreabilidade temporal"
+
+  - id: "F12"
+    name: "Versionamento automatico de arquivos editados (filename-vnnn.* pattern)"
+    status: "implemented"
+    scope:
+      - "Mantem trilha de versoes em alteracoes relevantes"
+      - "Facilita comparacao e rollback pontual"
+    acceptance_criteria:
+      - "Padrao de nomenclatura de versao e consistente"
+
+  - id: "F13"
+    name: "Backup e recuperacao de codigos com falha na execucao"
+    status: "implemented"
+    scope:
+      - "Reduz risco operacional em mudancas no container N8N e banco PostgreSQL"
+      - "Snapshot de volumes Docker e dump do banco antes de cada upgrade de
+        versao"
+      - "Apoia recuperacao rapida apos falha em etapa intermediaria do upgrade"
+    acceptance_criteria:
+      - "Processo de restore definido, documentado e testavel em ambiente de
+        teste (wfdb01)"
+      - "Backup validado antes de qualquer promocao de versao"
+
+  - id: "F14"
+    name: "Rastreamento completo de mudancas e rollback automatico"
+    status: "implemented"
+    scope:
+      - "Garante auditabilidade fim a fim do processo de upgrade N8N (versao,
+        data, responsavel)"
+      - "Rastreia cada versao intermediaria aplicada no caminho 2.6.4 -> latest"
+      - "Suporta reversao com baixa indisponibilidade via re-tag de imagem
+        Docker"
+    acceptance_criteria:
+      - "Cada versao aplicada registra: imagem, hash, variaveis de ambiente e
+        evidencias de teste"
+      - "Rollback a versao anterior possivel em menos de 5 minutos"
+
+  - id: "F15"
+    name: "Analise de desempenho N8N — Relatorio ANA-001"
+    status: "implemented"
+    scope:
+      - "Coleta e analise de 90 dias de metricas N8N via VictoriaMetrics (wf001)"
+      - "Identificacao dos ofensores de volume: 121Labs PABX (429K exec) e
+        WhatsApp Gateway (84K exec)"
+      - "Mapeamento de lacunas de instrumentacao: fila, memoria, sub-100ms e
+        dupla coleta"
+    acceptance_criteria:
+      - "Relatorio ANA-001 gerado com hipoteses priorizadas (P1/P2/P3) e plano
+        de acao"
+      - "Evidencias baseadas em dados reais do VictoriaMetrics via SSH tunnel"
+
+  - id: "F16"
+    name: "Habilitacao de metricas de fila do N8N"
+    status: "not-started"
+    scope:
+      - "Ativar N8N_METRICS_INCLUDE_QUEUE_METRICS=true e
+        QUEUE_HEALTH_CHECK_ACTIVE=true"
+      - "Validar exposicao de n8n_queue_* no endpoint /metrics do container"
+      - "Criar alertas Prometheus para profundidade de fila acima de threshold
+        definido"
+    acceptance_criteria:
+      - "Metricas de fila visiveis no Grafana/VictoriaMetrics para o ambiente
+        wf001"
+      - "Hipotese de fila saturada confirmada ou descartada com dados reais"
+
+  - id: "F17"
+    name: "Purgacao e tunning do PostgreSQL do N8N"
+    status: "not-started"
+    scope:
+      - "Analisar tabela execution_entity com 429K+ execucoes acumuladas"
+      - "Configurar EXECUTIONS_DATA_PRUNE=true com retencao de 30 dias"
+      - "Ativar pg_stat_statements e postgres_exporter para monitoramento de
+        queries"
+    acceptance_criteria:
+      - "Tamanho da execution_entity reduzido e crescimento controlado por
+        politica de retencao"
+      - "Queries lentas do N8N visiveis e documentadas no relatorio de tunning"
+      - "Backup e restore do banco validados antes e apos purgacao"
+
+  - id: "F18"
+    name: "Correcao de dupla coleta de metricas Prometheus"
+    status: "not-started"
+    scope:
+      - "Desabilitar PROMETHEUS_PUSHGATEWAY_ENABLED=true no prod-collector-api"
+      - "Garantir que apenas o scrape direto (job=n8n, instance=wf001) permaneca
+        ativo"
+      - "Validar ProvenanceGate para evitar dupla contagem em analises futuras"
+    acceptance_criteria:
+      - "Serie 0.0.0.0:5000 (Pushgateway) nao recebe novos dados apos a correcao"
+      - "Contagens de execucoes N8N coerentes entre dashboards e alertas"
+
+  - id: "F19"
+    name: "Automacao de upgrade incremental do N8N (v2.6.4 -> latest)"
+    status: "not-started"
+    scope:
+      - "Playbooks Ansible idempotentes para upgrade versao a versao sem pular
+        intermediarias"
+      - "Pre-checks (backup, health, rollback gate) e pos-checks (validacao
+        funcional, metricas)"
+      - "Resolucao de versao latest via tags oficiais Docker Hub do N8N como
+        fonte primaria"
+    acceptance_criteria:
+      - "Cada versao intermediaria aplicada com sucesso antes de avancar para a
+        proxima"
+      - "Rollback automatizado ativado em caso de falha nos pos-checks"
+      - "Zero perda de execucoes, credenciais e workflows durante o upgrade"
+
+  - id: "F20"
+    name: "Probe sintetico end-to-end de desempenho N8N"
+    status: "not-started"
+    scope:
+      - "Script de sonda que dispara webhook N8N a cada 5 minutos e mede tempo
+        de resposta"
+      - "Captura de latencia real percebida: fila + execucao + overhead de
+        resposta"
+      - "Publicacao da metrica no Prometheus para historico e alertas"
+    acceptance_criteria:
+      - "Metrica de latencia end-to-end disponivel no VictoriaMetrics para wf001"
+      - "Baseline de latencia documentado antes e apos cada acao de tunning"
+
+mcp_questions:
+  discovery:
+    - id: "Q01"
+      question: "Qual versao exata do n8n esta em execucao no ambiente
+        wf001.vya.digital (31.220.103.208)?"
+      rationale: "Confirmar baseline antes do upgrade — default documentado: 2.6.4"
+      expected_answer_type: "string"
+      default: "2.6.4"
+      feature_ref: "F19"
+
+    - id: "Q02"
+      question: "Qual estrategia de update de container sera adotada (in-place,
+        blue-green, canary) mantendo upgrade versao a versao?"
+      rationale: "Definir risco, plano de rollback e trilha de versoes intermediarias"
+      expected_answer_type: "enum"
+      options: [ "in-place", "blue-green", "canary" ]
+      feature_ref: "F19"
+
+    - id: "Q03"
+      question: "Quais workflows sao criticos para validacao obrigatoria pos-upgrade?
+        (referencia: 121Labs PABX, hub-whatsapp-api-gateway-evolution-api)"
+      rationale: "Definir cobertura minima de testes — ANA-001 identificou os
+        workflows de maior volume"
+      expected_answer_type: "list"
+      feature_ref: "F19"
+
+  performance:
+    - id: "Q04"
+      question: "As metricas de fila do N8N (n8n_queue_*) estao habilitadas no
+        container de wf001?"
+      rationale: "Principal lacuna identificada no ANA-001 — hipotese de fila saturada
+        nao confirmavel sem essa metrica"
+      expected_answer_type: "boolean"
+      feature_ref: "F16"
+
+    - id: "Q05"
+      question: "Qual o tamanho atual da tabela execution_entity no PostgreSQL do N8N?"
+      rationale: "429K+ execucoes acumuladas podem ser gargalo de I/O — requer analise
+        antes da purgacao"
+      expected_answer_type: "string"
+      feature_ref: "F17"
+
+    - id: "Q06"
+      question: "A purgacao automatica de execucoes esta habilitada
+        (EXECUTIONS_DATA_PRUNE=true)? Qual a retencao atual?"
+      rationale: "Sem purgacao, a tabela execution_entity cresce indefinidamente
+        degradando o banco"
+      expected_answer_type: "map"
+      feature_ref: "F17"
+
+    - id: "Q07"
+      question: "O prod-collector-api ainda envia metricas via Pushgateway
+        (PROMETHEUS_PUSHGATEWAY_ENABLED=true)?"
+      rationale: "Dupla coleta ativa gera contagem duplicada no VictoriaMetrics —
+        correcao identificada em ANA-001"
+      expected_answer_type: "boolean"
+      feature_ref: "F18"
+
+    - id: "Q08"
+      question: "Quais limites de desempenho sao aceitaveis pos-upgrade? (ex: p95 <
+        100ms, fila < 50 itens, CPU < 30%)"
+      rationale: "Estabelecer criterio objetivo de aceite para os gates de promocao
+        entre versoes"
+      expected_answer_type: "map"
+      feature_ref: "F19"
+
+  compatibility:
+    - id: "Q09"
+      question: "Quais dependencias externas devem ser validadas (PostgreSQL, Redis,
+        webhooks, credenciais OAuth)?"
+      rationale: "Evitar regressao de integracao — conexoes e credenciais sao frageis
+        entre versoes do N8N"
+      expected_answer_type: "list"
+      feature_ref: "F19"
+
+    - id: "Q10"
+      question: "Existe mudanca de variaveis de ambiente entre a versao atual (2.6.4)
+        e a alvo?"
+      rationale: "Prevenir falha de startup por variaveis descontinuadas ou novas
+        obrigatorias"
+      expected_answer_type: "boolean"
+      feature_ref: "F19"
+
+    - id: "Q11"
+      question: "O Traefik esta configurado para rotear trafego do N8N em wf001?
+        Labels e middlewares estao corretos?"
+      rationale: "Todos os servidores usam Traefik como proxy — re-criacao do
+        container pode perder labels"
+      expected_answer_type: "boolean"
+      feature_ref: "F19"
+
+  operations:
+    - id: "Q12"
+      question: "Qual janela de manutencao aprovada para execucao do upgrade em wf001?"
+      rationale: "Alinhar operacao com disponibilidade do servico — ambiente de producao"
+      expected_answer_type: "string"
+      feature_ref: "F19"
+
+    - id: "Q13"
+      question: "Qual procedimento de backup sera usado antes de cada versao
+        intermediaria? (dump PG + snapshot volume Docker)"
+      rationale: "Garantir recuperacao em caso de falha — cada versao intermediaria
+        precisa de backup proprio"
+      expected_answer_type: "text"
+      feature_ref: "F13"
+
+    - id: "Q14"
+      question: "Quais evidencias devem ser coletadas para aprovar promocao de cada
+        versao intermediaria?"
+      rationale: "Padronizar auditoria — ANA-001 define metricas de referencia como
+        criterio de aceite"
+      expected_answer_type: "list"
+      feature_ref: "F14"
+
+    - id: "Q15"
+      question: "O probe sintetico end-to-end (F20) sera implementado antes ou apos o
+        primeiro upgrade de versao?"
+      rationale: "Definir baseline de latencia pre-upgrade e comparar pos-upgrade para
+        validar melhora ou regressao"
+      expected_answer_type: "enum"
+      options: [ "antes", "apos", "simultaneamente" ]
+      feature_ref: "F20"
+
+  governance:
+    - id: "Q16"
+      question: "Qual responsavel aprova cada gate Speckit (constitution, plan, tasks,
+        implement) neste projeto?"
+      rationale: "Definir accountability por etapa — SDD exige decisoes rastreadas por
+        responsavel"
+      expected_answer_type: "map"
+
+    - id: "Q17"
+      question: "Qual estrategia de rastreabilidade sera usada entre spec
+        (objetivo.yaml), tarefas e execucao?"
+      rationale: "Suportar SDD e auditoria — todos os artefatos devem ser
+        referenciados por feature_id"
+      expected_answer_type: "text"
+
+    - id: "Q18"
+      question: "Quais riscos bloqueadores impedem promover para producao? (ex: falha
+        no pos-check, perda de dado, workflow critico com erro)"
+      rationale: "Definir criterios de no-go para cada versao intermediaria do upgrade"
+      expected_answer_type: "list"
+      feature_ref: "F19"
+
+rules:
+  - "Seguir o fluxo de trabalho do framework Speckit"
+  - "Criar fluxo de atualizacao de container do n8n evitando erros de
+    compatibilidade e desempenho"
+  - "Atualizacao do n8n deve ocorrer versao a versao desde 2.6.4 ate latest, sem
+    pular versoes"
+  - "A resolucao da versao latest deve usar tags oficiais Docker Hub do N8N como
+    fonte primaria"
+  - "Fluxo de trabalho deve ser guiado por prompts para GitHub Copilot"
+  - "Configuracao MCP deve ser gerada automaticamente baseada nas especificacoes"
+  - "Sistema de versionamento e historico deve rastrear todas as mudancas"
+  - "N8N em producao roda em wf001.vya.digital (31.220.103.208) — alteracoes
+    exigem janela de manutencao"
+  - "Ambiente de teste do N8N publicado em wfdb01.vya.digital (86.48.31.149),
+    pasta /opt/docker_user/n8n"
+  - "Todos os servidores Docker utilizam Traefik como proxy reverso — labels
+    devem ser preservados"
+  - "Atencao a configuracao de conexao SSH SPA contidos em .secrets/ssh.json"
+  - "Credenciais e tokens nunca devem ser embutidos em artefatos versionados"
+
+output_contract:
+  expected_outputs:
+    - "Documentacao em Markdown com historico de acoes e debates de sessao
+      (docs/SESSIONS/)"
+    - "Playbooks Ansible idempotentes para upgrade incremental versao a versao
+      do N8N"
+    - "Scripts Python para pre-check, pos-check, backup e probe sintetico
+      end-to-end"
+    - "Artefatos de configuracao: variaveis de ambiente N8N, Traefik labels,
+      Prometheus scrape config"
+    - "Relatorio de tunning PostgreSQL com evidencias de purgacao e otimizacao
+      de queries"
+    - "Relatorio de correcao da dupla coleta Prometheus com validacao de
+      metricas"
+  quality_requirements:
+    - "Documentacao incremental e cronologica por sessao"
+    - "Rastreabilidade ponta a ponta: feature_id -> tarefa -> execucao ->
+      evidencia"
+    - "Rollback testavel a cada versao intermediaria do upgrade"
+    - "Validacao funcional e nao funcional com baseline ANA-001 como referencia"
+    - "Zero exposicao de credenciais em artefatos versionados"
+    - "Execucao nao interativa e auditavel (logs estruturados)"
+  project_memory:
+    baseline_report: \"docs/n8n_perf_ANA001_20260101_20260331_20260331T154646.md\"
+    spec_source: \"docs/objetivo.yaml\"
+    mcp_config: \"docs/mcp-questions.yaml\"
+    sessions_dir: \"docs/SESSIONS/\"
+    ssh_secrets: \".secrets/ssh.json\"

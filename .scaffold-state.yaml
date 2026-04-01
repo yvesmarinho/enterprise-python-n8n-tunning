@@ -1,0 +1,14 @@
+scaffold_version: 1.0.0
+created_at: '2026-04-01T13:38:39Z'
+updated_at: '2026-04-01T13:38:55Z'
+project:
+  name: enterprise-python-n8n-tunning
+  title: Enterprise Python N8n Tunning
+  description: projeto para analisar e aplicar as ações propostas na analise do ambiente
+  domain: infrastructure
+  language: python
+  github_repo: https://github.com/yvesmarinho/enterprise-python-n8n-tunning.git
+paths:
+  target_dir: /home/yves_marinho/Documentos/DevOps/Vya-Jobs/enterprise-python-n8n-tunning
+  shared_dir: /home/yves_marinho/Documentos/DevOps/.copilot-shared
+profiles_applied: []

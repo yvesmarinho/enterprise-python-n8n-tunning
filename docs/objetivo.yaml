@@ -1,0 +1,640 @@
+prompt:
+  role: user
+  content:
+    description: "Projeto para analisar as propostas de melhorias enviadas pelo
+      'enterprise-python-analysis', verrificar as configurações existentes e
+      fazer os ajustes necessários para melhorar o desempenho do N8N."
+    specification:
+      - project_name: "enterprise-python-n8n-tunning"
+      - response: "Documentos e códigos Python e Ansible para analizar e ajustar a
+          configuração do N8N visando melhorar o desempenho, seguindo o fluxo de
+          trabalho do framework Speckit e utilizando prompts para GitHub
+          Copilot."
+      - docstyle: "Documentar o código, se possível, segundo padrão reStructuredText do
+          Docstring, incluindo Doct test. Design pattern Fabric. Melhores
+          práticas de desenvolvimento Python e Ansible."
+      - workflow: "objetivo.yaml → Copilot → mcp-questions.yaml → MCP automático"
+      - rules:
+          - "Seguir o fluxo de trabalho do framework Speckit."
+          - "Toda operação de tunning em wf001 requer janela de manutenção
+            definida e backup validado antes da execução."
+          - "Toda mudança aplicada em wf001 exige evidências métricas de
+            antes/depois registradas no SESSION_REPORT correspondente."
+          - "Nenhuma alteração em workflows de clientes (121Labs PABX, Evolution
+            API WhatsApp) deve ser realizada sem análise de impacto aprovada
+            pelo project-manager."
+          - "Fluxo de trabalho deve ser guiado por prompts para GitHub Copilot"
+          - "Configuração MCP deve ser gerada automaticamente baseada nas
+            especificações"
+          - "Sistema de versionamento e histórico deve rastrear todas as
+            mudanças"
+          - "Ambiente de teste está publicado no servidor `wfdb01`, na pasta
+            `/opt/docker_user/n8n`."
+          - "Atenção à configuração de conexão SSH SPA contidos em
+            `.secrets/ssh.json`"
+    infrastructure:
+      proxy: "Traefik — todos os servidores Docker utilizam Traefik como proxy
+        reverso"
+      servers:
+        - hostname: "wf001.vya.digital"
+          ip: "31.220.103.208"
+          role: "Servidor Docker de produção — hospeda o N8N e outros containers de
+            aplicação"
+          servicos:
+            - "N8N (container principal — foco deste projeto)"
+            - "prod-collector-api (expõe métricas N8N via scrape direto na porta
+              5001)"
+            - "Outros containers de aplicação em produção"
+          path_n8n: "/opt/docker_user/n8n"
+          path_docker_derfault: "/opt/docker_user"
+          notas:
+            - "Ambiente de produção — alterações exigem janela de manutenção e
+              backup validado"
+            - "Scrape Prometheus configurado: targets 31.220.103.208:5001,
+              relabeling instance=wf001"
+            - "Servidor VPS USA/East Coast/New York — latência de rede otimizada
+              para clientes globais"
+        - hostname: "wf008.vya.digital"
+          ip: "31.220.103.208"
+          role: "Servidor Docker de produção — hospeda o Journey System e outros
+            containers de aplicação próprios da Vya"
+          servicos:
+            - "Journey System, sistema interno de jornada de campanhas de
+              marketing (container principal — fora deste projeto)"
+            - "prod-collector-api (expõe métricas N8N via scrape direto na porta
+              5001)"
+            - "PostgreSQL (banco de dados do Journey System — fora deste
+              projeto)"
+          path_docker_derfault: "/opt/docker_user"
+          notas:
+            - "Ambiente de produção — alterações exigem janela de manutenção e
+              backup validado"
+            - "Servidor VPS Brasil/São Paulo — latência de rede otimizada para
+              clientes brasileiros"
+        - hostname: "wfdb01.vya.digital"
+          ip: "86.48.31.149"
+          role: "Servidor Docker de produção — hospeda a stack Prometheus/VictoriaMetrics
+            e outros containers"
+          servicos:
+            - "VictoriaMetrics (armazenamento de métricas — fonte de dados do
+              ANA-001)"
+            - "Prometheus (coleta e scrape de métricas)"
+            - "Pushgateway (receptor de métricas push — dupla coleta a corrigir
+              via F18)"
+            - "Outros containers de monitoramento e infraestrutura"
+          path_docker_derfault: "/opt/docker_user"
+          notas:
+            - "Ambiente de teste do N8N publicado neste servidor, pasta
+              /opt/docker_user/n8n - SERVIDOR DE TESTE - NÃO É PRODUÇÃO!!!"
+            - "Acesso via SSH SPA conforme .secrets/ssh.json"
+            - "Container com PostgreSQL é para uso exclusivo do stack
+              Prometheus/VictoriaMetrics — não hospeda nenhum banco de dados de
+              aplicação"
+            - "Servidor VPS USA/East Coast/New York — latência de rede otimizada
+              para clientes globais"
+        - hostname: "wfdb02.vya.digital"
+          ip: "82.197.64.145"
+          role: "Servidor de Banco de dados de produção — hospeda o PostgreSQL e MySQL,
+            base de dados do N8N e outros bancos de dados"
+          servicos:
+            - "PostgresSQL versão 16 - porta 6432"
+            - "Pgbouncer (pool de conexões para PostgreSQL) porta 5432"
+            - "MySQL versão 8.4 porta 3306"
+            - "Node Exporter (monitoramento de banco de dados via Prometheus)"
+            - "Outros containers de monitoramento e infraestrutura"
+          notas:
+            - "Ambiente de produção — alterações exigem janela de manutenção e
+              backup validado"
+            - "Acesso via SSH SPA conforme .secrets/ssh.json"
+            - "Servidor VPS USA/East Coast/New York — latência de rede otimizada
+              para clientes globais"
+    folder_structure:
+      - ".vscode - Configurações VS Code e MCP (geradas automaticamente)"
+      - ".github - Workflows de GitHub Actions para automação de CI/CD e AI
+        agents"
+      - ".specify - Github Sepckit framework configuration e templates"
+      - "docs - Documentação (gerada automaticamente)"
+      - "docs/SESSIONS - Histórico cronológico de sessões"
+      - "docs/SESSIONS/YYYY-MM-DD/DAILY_ACTIVITIES_YYYY-MM-DD.md - Histórico das
+        atividades diárias e decisões tomadas"
+      - "docs/SESSIONS/YYYY-MM-DD/DEBATE_*_YYYY-MM-DD.md - Registro de debates
+        entre agentes, incluindo decisões tomadas e justificativas"
+      - "docs/SESSIONS/YYYY-MM-DD/ERROR_*_YYYY-MM-DD.md - Registro de erros e
+        exceções ocorridos durante as sessões, com as soluções aplicadas para
+        resolução"
+      - "docs/SESSIONS/YYYY-MM-DD/FINAL_STATUS_YYYY-MM-DD.md - Registro de
+        status final de cada sessão, incluindo resultados alcançados e lições
+        aprendidas"
+      - "docs/SESSIONS/YYYY-MM-DD/SESSION_REPORT_YYYY-MM-DD.md - Relatório
+        detalhado de cada sessão, incluindo decisões, aprendizados e próximos
+        passos"
+      - "docs/SESSIONS/YYYY-MM-DD/SESSION_RECOVERY_YYYY-MM-DD.md - Registro de
+        recuperação de sessões em caso de falhas ou interrupções"
+      - "docs/objetivo.yaml - Especificação detalhada do projeto"
+      - "docs/mcp-questions.yaml - Configuração gerada pelo Copilot"
+      - "docs/n8n_perf_ANA001_20260101_20260331_20260331T154646.md - Análise de
+        desempenho do N8N com base em dados coletados"
+      - "src - Código-fonte do projeto (estrutura específica por tipo)"
+      - "test - Testes automatizados (framework baseado na linguagem)"
+      - "scripts - Scripts de automação inteligente"
+    expected_outcome:
+      - return_info: >
+          Arquivos MD com a documentação de todas as ações e todos os chats.
+          Objetivando documentação e memória do projeto, incluindo decisões,
+          mudanças e aprendizados. Para cada debate entre os agentes, deve ser
+          gerado um arquivo MD específico com o histórico do debate, decisões
+          tomadas e justificativas. O arquivo deve seguir o padrão de
+          nomenclatura `debate-YYYYMMDD-HHMMSS.md` e conter uma estrutura clara
+          de tópicos, incluindo Resumo do Debate, Decisões Tomadas,
+          Justificativas e Ações Pendentes. Códigos Python e Ansible para tratar
+          todas as ações. Aplicar as melhores práticas de segurança para evitar
+          exposição de dados sensíveis, especialmente em relação à configuração
+          SSH. Garantir que o processo seja auditável, com logs detalhados e
+          rastreabilidade de todas as mudanças.
+      - workflow_result: "Fluxo de 4 etapas: constitution → clarify → plan → checklist→
+          tasks → analyze → implement"
+      - ai_integration: "Prompts específicos de agents para GitHub Copilot guiarem toda
+          a configuração"
+      - multi_technology: "Suporte automático para Python e Ansible."
+    profile:
+      - role: system_architect
+        skill_level: "expert"
+        description: "Arquiteto em soluções Docker com Linux Debian 12."
+        foco:
+          - "Arquitetura de tunning de performance para stack N8N + PostgreSQL +
+            Prometheus/VictoriaMetrics em wf001 e wfdb01"
+          - "Estratégia de rollback seguro para operações de tunning — snapshots
+            de volumes Docker e backup PostgreSQL"
+          - "Definição de gates técnicos para promoção de mudanças de wfdb01
+            (teste) para wf001 (produção)"
+        responsabilidades:
+          - "Definir arquitetura de cada ação de tunning com isolamento de risco"
+          - "Aprovar sequência de execução por etapas do workflow Speckit"
+          - "Definir janelas de manutenção e critérios de rollback por feature"
+        criterios_decisao:
+          - "Priorizar disponibilidade e integridade de dados"
+          - "Evitar mudanças não reversíveis sem backup validado"
+      - role: N8N_specialist
+        skill_level: "expert"
+        description: "Especialista em N8N e automação de workflows."
+        foco:
+          - "Análise de volume e padrões de execução dos workflows críticos
+            (121Labs PABX 429K exec, WhatsApp Gateway 84K exec)"
+          - "Configuração de métricas N8N: fila (F16), concorrência (F24) e
+            buckets sub-100ms (F22)"
+          - "Validação funcional de workflows após cada ação de tunning"
+        responsabilidades:
+          - "Mapear impacto de cada ação de tunning nos workflows activos"
+          - "Definir checklist de validação pós-tunning por feature"
+          - "Validar comportamento de workflows nos ambientes wfdb01 e wf001"
+        criterios_decisao:
+          - "Zero perda de execuções e credenciais"
+          - "Sem regressão funcional nos fluxos críticos"
+      - role: devops_engineer
+        skill_level: "expert"
+        description: "Expert em Python, Ansible e SDD (Specification-Driven Development)."
+        foco:
+          - "Automação idempotente de atualização"
+          - "Padronização de scripts e playbooks"
+          - "Implementação orientada por especificação (SDD)"
+          - "Coleta de evidências técnicas e logs de execução"
+        responsabilidades:
+          - "Especificar automações de pré-check, upgrade e pós-check"
+          - "Padronizar variáveis de ambiente e parâmetros de execução"
+          - "Garantir rastreabilidade entre especificação e execução"
+          - "Garantir reprodutibilidade do processo em múltiplos ambientes"
+        criterios_decisao:
+          - "Execução não interativa e auditável"
+          - "Conformidade com requisitos definidos na especificação"
+          - "Falhas tratadas com retorno e ação de recuperação"
+      - role: devops_automation
+        skill_level: "advanced"
+        description: "Especialista em DevOps, automação de workflows de desenvolvimento
+          e SDD."
+        foco:
+          - "Orquestração do fluxo objetivo.yaml -> mcp-questions.yaml -> MCP"
+          - "Governança de documentação e versionamento"
+          - "Adoção de SDD para padronizar decisões técnicas"
+          - "Padronização dos prompts e artefatos de sessão"
+        responsabilidades:
+          - "Garantir consistência entre especificação, plano e tarefas"
+          - "Rastrear mudanças e dependências entre artefatos"
+          - "Assegurar que execução siga os critérios definidos em spec"
+          - "Definir critérios de completude de cada etapa"
+        criterios_decisao:
+          - "Rastreabilidade ponta a ponta das decisões"
+          - "Priorizar entregas aderentes ao ciclo SDD"
+          - "Documentação incremental e verificável"
+      - role: project_manager
+        skill_level: "advanced"
+        description: "Gestor de projetos com foco em governança, planejamento e entrega
+          incremental."
+        foco:
+          - "Planejamento de marcos e cronograma do upgrade"
+          - "Sequenciamento e controle de versões intermediárias em cada etapa"
+          - "Gestão de riscos, comunicação e alinhamento entre perfis"
+          - "Acompanhamento de progresso por critérios de aceite"
+        responsabilidades:
+          - "Definir plano de execução e priorização por impacto"
+          - "Gerenciar dependências, impedimentos e decisões"
+          - "Garantir visibilidade de status para stakeholders"
+        criterios_decisao:
+          - "Maximizar previsibilidade de entrega"
+          - "Reduzir risco operacional durante a janela de mudança"
+      - role: test_engineer
+        skill_level: "expert"
+        description: "Engenheiro de testes para validação funcional, regressão e
+          desempenho das ações de tunning."
+        foco:
+          - "Estratégia de testes pré e pós-tunning para cada feature (F16–F25)"
+          - "Validação de métricas antes e depois de cada ação: latência,
+            throughput, fila e PostgreSQL execution_entity"
+          - "Cobertura de cenários críticos: 121Labs PABX e WhatsApp Gateway"
+          - "Métricas de desempenho coletadas via VictoriaMetrics"
+        responsabilidades:
+          - "Definir matriz de testes por risco e criticidade por feature"
+          - "Executar validações funcionais e de observabilidade em wfdb01 antes
+            de promover para wf001"
+          - "Consolidar evidências métricas antes/depois para aprovação de cada
+            ação de tunning"
+        criterios_decisao:
+          - "Sem regressões críticas em workflows prioritários"
+          - "Desempenho e estabilidade dentro de limites aceitáveis"
+      - role: databases_engineer
+        skill_level: "expert"
+        description: "Engenheiro de bancos de dados para validação funcional, tunning de
+          bases de dados e querys, otimização de performance e integridade de
+          dados."
+        foco:
+          - "Tunning e otimização das queries SQL do banco PostgreSQL do N8N"
+          - "Análise de índices, planos de execução e saturação da tabela
+            execution_entity (429K+ execuções)"
+          - "Validação de integridade e consistência dos dados pré e pós-upgrade
+            do N8N"
+          - "Monitoramento de métricas do banco: conexões ativas, locks, temps
+            de query e I/O"
+        responsabilidades:
+          - "Diagnosticar gargalos no PostgreSQL do N8N com foco na tabela
+            execution_entity"
+          - "Definir e implementar estratégia de purgação de execuções
+            históricas (EXECUTIONS_DATA_PRUNE)"
+          - "Ativar e validar pg_stat_statements e postgres_exporter com query
+            stats"
+          - "Garantir backup consistente e testável do banco antes e após cada
+            upgrade de versão"
+          - "Documentar alterações de schema e migrações realizadas entre
+            versões do N8N"
+        criterios_decisao:
+          - "Zero perda de dados durante operações de upgrade, purgação ou
+            migração"
+          - "Tempo de resposta das queries dentro dos limites estabelecidos no
+            relatório ANA-001"
+          - "Integridade referencial e consistência dos dados validadas a cada
+            versão intermediária"
+    features_implemented:
+      - id: F01
+        nome: "Fluxo de trabalho inteligente com 5 etapas automatizadas"
+        status: "implemented"
+        escopo:
+          - "Conduz o projeto por etapas de descoberta, planejamento e execução"
+          - "Reduz saltos de contexto e decisões ad-hoc"
+        criterio_aceite:
+          - "Cada etapa produz artefato explícito e rastreável"
+      - id: F02
+        nome: "Sistema de prompts específicos para GitHub Copilot"
+        status: "implemented"
+        escopo:
+          - "Padroniza interação dos agentes por objetivo"
+          - "Aumenta consistência de saída entre sessões"
+        criterio_aceite:
+          - "Prompts orientam entradas, saídas e validações esperadas"
+      - id: F03
+        nome: "Template agnóstico a tecnologia com adaptação automática"
+        status: "implemented"
+        escopo:
+          - "Permite uso do framework com stack heterogênea"
+          - "Mantém núcleo de processo sem acoplamento rígido"
+        criterio_aceite:
+          - "Estrutura-base permanece válida para Python e Ansible"
+      - id: F04
+        nome: "Makefile com 15+ targets seguindo novo fluxo de trabalho"
+        status: "implemented"
+        escopo:
+          - "Organiza execução operacional por comandos previsíveis"
+          - "Centraliza tarefas de rotina e validação"
+        criterio_aceite:
+          - "Targets cobrem ciclo de desenvolvimento e QA"
+      - id: F05
+        nome: "Scripts Python inteligentes para geração de configurações"
+        status: "implemented"
+        escopo:
+          - "Automatiza geração de artefatos de configuração (MCP, SSH,
+            variáveis de ambiente N8N)"
+          - "Reduz erro humano na edição manual de configs sensíveis"
+          - "Suporta geração de scripts Ansible e payloads Docker Compose"
+        criterio_aceite:
+          - "Geração determinística para mesma entrada"
+          - "Credenciais e tokens nunca embutidos nos artefatos gerados"
+      - id: F06
+        nome: "Suporte nativo a múltiplas linguagens e frameworks"
+        status: "implemented"
+        escopo:
+          - "Expande aplicabilidade do template"
+          - "Facilita adoção em cenários híbridos"
+        criterio_aceite:
+          - "Regras e estruturas não bloqueiam adoção multi-stack"
+      - id: F07
+        nome: "Templates de código com padrões reStructuredText"
+        status: "implemented"
+        escopo:
+          - "Uniformiza docstrings e documentação técnica"
+          - "Favorece legibilidade e manutenção"
+        criterio_aceite:
+          - "Templates contemplam padrão reStructuredText e Doctest"
+      - id: F08
+        nome: "Documentação automática baseada na configuração"
+        status: "implemented"
+        escopo:
+          - "Gera documentação coerente com estado do projeto"
+          - "Reduz divergência entre prática e registro"
+        criterio_aceite:
+          - "Artefatos de docs refletem inputs de configuração"
+      - id: F09
+        nome: "Configuração VS Code dinâmica e específica por projeto"
+        status: "implemented"
+        escopo:
+          - "Ajusta ambiente de desenvolvimento ao domínio"
+          - "Melhora produtividade e conformidade"
+        criterio_aceite:
+          - "Configuração atende padrões definidos por perfil/projeto"
+      - id: F10
+        nome: "Estrutura de pastas extensível e padronizada"
+        status: "implemented"
+        escopo:
+          - "Favorece escalabilidade organizacional"
+          - "Facilita navegação e manutenção"
+        criterio_aceite:
+          - "Estrutura suporta crescimento sem refatoração estrutural"
+      - id: F11
+        nome: "Sistema de geração de HISTORICO.md cronológico para callback de sessões"
+        status: "implemented"
+        escopo:
+          - "Registra evolução de decisões e ações"
+          - "Permite retomada de contexto com baixa fricção"
+        criterio_aceite:
+          - "Entradas cronológicas mantêm rastreabilidade temporal"
+      - id: F12
+        nome: "Versionamento automático de arquivos editados (filename-vnnn.* pattern)"
+        status: "implemented"
+        escopo:
+          - "Mantém trilha de versões em alterações relevantes"
+          - "Facilita comparação e rollback pontual"
+        criterio_aceite:
+          - "Padrão de nomenclatura de versão é consistente"
+      - id: F13
+        nome: "Backup e recuperação para operações de tunning"
+        status: "implemented"
+        escopo:
+          - "Reduz risco operacional em mudanças de configuração no N8N,
+            PostgreSQL e stack Prometheus/VictoriaMetrics"
+          - "Dump do banco PostgreSQL antes de qualquer purgação da
+            execution_entity ou alteração de schema"
+          - "Snapshot de volumes Docker antes de alterações em variáveis de
+            ambiente ou recriação de containers"
+          - "Apoia recuperação rápida após falha em operações de tunning
+            executadas em wfdb01 ou wf001"
+        criterio_aceite:
+          - "Processo de restore definido, documentado e testável em wfdb01
+            antes de qualquer operação em wf001"
+          - "Backup validado antes de cada operação destrutiva (purgação, ALTER
+            TABLE, recriação de container)"
+      - id: F14
+        nome: "Rastreamento de mudanças de configuração e rollback de tunning"
+        status: "implemented"
+        escopo:
+          - "Auditabilidade fim a fim de cada ação de tunning (configuração
+            alterada, data, responsável, evidência de antes/depois)"
+          - "Rastreia mudanças em variáveis de ambiente N8N, parâmetros
+            PostgreSQL e configuração Prometheus/VictoriaMetrics"
+          - "Suporta reversão de configuração com baixa indisponibilidade via
+            re-aplicação do estado anterior documentado"
+        criterio_aceite:
+          - "Cada mudança registra: parâmetro, valor anterior, valor novo e
+            evidências métricas de antes/depois"
+          - "Rollback de configuração possível em menos de 5 minutos para
+            qualquer ação de tunning"
+      - id: F15
+        nome: "Análise de desempenho N8N — Relatório ANA-001"
+        status: "implemented"
+        escopo:
+          - "Coleta e análise de 90 dias de métricas N8N via VictoriaMetrics
+            (wf001)"
+          - "Identificação dos ofensores de volume: 121Labs PABX (429K exec) e
+            WhatsApp Gateway (84K exec)"
+          - "Mapeamento de lacunas de instrumentação: fila, memória, sub-100ms e
+            dupla coleta"
+        criterio_aceite:
+          - "Relatório ANA-001 gerado com hipóteses priorizadas (P1/P2/P3) e
+            plano de ação"
+          - "Evidências baseadas em dados reais do VictoriaMetrics via SSH
+            tunnel"
+      - id: F16
+        nome: "Habilitação de métricas de fila do N8N"
+        status: "not-started"
+        escopo:
+          - "Ativar variáveis N8N_METRICS_INCLUDE_QUEUE_METRICS=true e
+            QUEUE_HEALTH_CHECK_ACTIVE=true"
+          - "Validar exposição de n8n_queue_* no endpoint /metrics do container"
+          - "Criar alertas Prometheus para profundidade de fila acima de
+            threshold definido"
+        criterio_aceite:
+          - "Métricas de fila visíveis no Grafana/VictoriaMetrics para o
+            ambiente wf001"
+          - "Hipótese de fila saturada confirmada ou descartada com dados reais"
+      - id: F17
+        nome: "Purgação e tunning do PostgreSQL do N8N"
+        status: "not-started"
+        escopo:
+          - "Analisar tabela execution_entity com 429K+ execuções acumuladas"
+          - "Configurar EXECUTIONS_DATA_PRUNE=true com retenção de 30 dias"
+          - "Ativar pg_stat_statements e postgres_exporter para monitoramento de
+            queries"
+        criterio_aceite:
+          - "Tamanho da execução_entity reduzido e crescimento controlado por
+            política de retenção"
+          - "Queries lentas do N8N visíveis e documentadas no relatório de
+            tunning"
+          - "Backup e restore do banco validados antes e após purgação"
+      - id: F18
+        nome: "Correção de dupla coleta de métricas Prometheus"
+        status: "not-started"
+        escopo:
+          - "Desabilitar PROMETHEUS_PUSHGATEWAY_ENABLED=true no
+            prod-collector-api"
+          - "Garantir que apenas o scrape direto (job=n8n, instance=wf001)
+            permaneça ativo"
+          - "Validar ProvenanceGate para evitar dupla contagem em análises
+            futuras"
+        criterio_aceite:
+          - "Série 0.0.0.0:5000 (Pushgateway) não recebe novos dados após a
+            correção"
+          - "Contagens de execuções N8N coerentes entre dashboards e alertas"
+      - id: F19
+        nome: "Governança de throughput e rate-limiting para workflows de alto volume"
+        status: "not-started"
+        escopo:
+          - "Auditar hub-whatsapp-api-gateway-evolution-api (84K exec em 27 dias
+            desde 04/mar) — verificar se o volume é proporcional à base de
+            clientes ativos da integração Evolution API (WhatsApp)"
+          - "Verificar e documentar configuração de rate-limiting na integração
+            N8N × Evolution API para o workflow WhatsApp Gateway"
+          - "Auditar 121Labs PABX call-analytics (429K exec, 57% do total, pico
+            de 8.416 exec/hora) — avaliar se trigger por evento individual vs.
+            batch é a principal causa do volume"
+          - "Documentar política de throughput recomendada por workflow e
+            cliente para orientar decisões de escalonamento e isolamento"
+        criterio_aceite:
+          - "Volume dos 2 workflows de alto volume documentado e justificado
+            pela base de clientes e configuração atual da integração"
+          - "Recomendação de rate-limiting ou batching emitida com impacto
+            estimado (exec/hora antes × depois)"
+          - "F19 é análise e recomendação interna (Vya) — sem gate externo com
+            clientes; aprovação pelo project-manager é suficiente para publicar
+            a recomendação e avançar para F21/F25"
+      - id: F20
+        nome: "Probe sintético end-to-end de desempenho N8N"
+        status: "not-started"
+        escopo:
+          - "Script de sonda que dispara webhook N8N a cada 5 minutos e mede
+            tempo de resposta"
+          - "Captura de latência real percebida: fila + execução + overhead de
+            resposta"
+          - "Publicação da métrica no Prometheus para histórico e alertas"
+        criterio_aceite:
+          - "Métrica de latência end-to-end disponível no VictoriaMetrics para
+            wf001"
+          - "Baseline de latência documentado antes e após cada ação de tunning"
+      - id: F21
+        nome: "Avaliação de batching para 121Labs PABX call-analytics"
+        status: "not-started"
+        escopo:
+          - "Avaliar agrupamento de eventos PABX por janela de 1 minuto antes de
+            disparar o workflow N8N (ANA-001: potencial redução de 60× no volume
+            — 8.400 exec/hora → ~140 exec/hora)"
+          - "Propor arquitetura de buffer (N8N Schedule Trigger ou middleware
+            externo) compatível com a integração atual do cliente 121Labs"
+          - "Estimar impacto da redução no PostgreSQL execution_entity e na fila
+            de execução N8N"
+        criterio_aceite:
+          - "Análise de viabilidade técnica documentada com impacto estimado em
+            exec/hora e carga no PostgreSQL"
+          - "Proposta apresentada e aprovada pelo cliente 121Labs antes de
+            qualquer implementação"
+      - id: F22
+        nome: "Adição de buckets sub-100ms ao histograma do N8N"
+        status: "not-started"
+        escopo:
+          - "Adicionar buckets de resolução fina ao
+            n8n_workflow_execution_duration_seconds: 0.005, 0.01, 0.025, 0.05"
+          - "Atualizar configuração do prom-client no prod-collector-api ou no
+            container N8N via variável de ambiente ou plugin"
+          - "Validar que os novos buckets aparecem no endpoint /metrics e são
+            coletados pelo Prometheus e armazenados no VictoriaMetrics"
+        criterio_aceite:
+          - "p50 e p95 sub-100ms mensuráveis por workflow após a atualização"
+          - "Histórico de latência real disponível no VictoriaMetrics para
+            comparação antes × depois de cada ação de tunning (F17, F18, F20)"
+      - id: F23
+        nome: "Correção do monitoramento de memória do servidor wf001"
+        status: "not-started"
+        escopo:
+          - "Diagnosticar por que node_memory_* retorna vazio no scrape de wf001
+            (label instance incorreto identificado no ANA-001)"
+          - "Corrigir configuração de relabeling do scrape config Prometheus
+            para o node_exporter de wf001"
+          - "Validar que métricas de memória RAM e swap aparecem no
+            VictoriaMetrics para instance=wf001"
+        criterio_aceite:
+          - "node_memory_MemAvailable_bytes{instance='wf001'} retorna valores
+            válidos no Prometheus/VictoriaMetrics"
+          - "Dashboard de memória de wf001 funcional — complementa dados de CPU
+            já disponíveis (baseline ANA-001: 1–3% CPU em condição normal)"
+      - id: F24
+        nome: "Habilitação de métricas de concorrência do N8N"
+        status: "not-started"
+        escopo:
+          - "Ativar e validar n8n_concurrency_* no endpoint /metrics do
+            container N8N (versão confirmada em wf001: 2.6.4 — já atende
+            requisito >= 0.214; sem pré-requisito de troca de versão)"
+          - "Monitorar execuções simultâneas ativas vs. limite de concorrência
+            configurado no N8N"
+          - "Criar alerta Prometheus para concorrência próxima do limite
+            (threshold recomendado: 80% do max configurado)"
+        criterio_aceite:
+          - "n8n_concurrency_current e n8n_concurrency_limit visíveis no
+            VictoriaMetrics para wf001"
+          - "Hipótese de workers saturados (causa da lentidão percebida no
+            ANA-001) confirmada ou descartada com dados reais"
+      - id: F25
+        nome: "Avaliação de isolamento de workload para workflows de alto volume"
+        status: "not-started"
+        escopo:
+          - "Avaliar viabilidade técnica de instância N8N dedicada (wf002 ou
+            container separado em wf001) para 121Labs PABX call-analytics (57%
+            do volume total — 429K exec/90d)"
+          - "Avaliar impacto no PostgreSQL compartilhado caso instâncias
+            separadas usem o mesmo banco"
+          - "Documentar arquitetura proposta com estimativa de custo operacional
+            e ganhos de isolamento esperados"
+        criterio_aceite:
+          - "Análise de viabilidade documentada: benefícios, riscos e custo
+            operacional estimado"
+          - "Decisão go/no-go registrada em SESSION_REPORT com justificativa e
+            aprovação do project-manager"
+
+    execution_order:
+      source: "ANA-001 — prioridade por impacto operacional"
+      phases:
+        - phase: "P1"
+          label: "Instrumentação e correção crítica"
+          note: "Features independentes entre si — podem ser executadas em paralelo em
+            wfdb01 antes de promover em bloco para wf001"
+          features: [ F16, F17, F18 ]
+        - phase: "P2"
+          label: "Observabilidade complementar"
+          note: "Depende de P1 estar estável em wf001; F20 requer F16 ativo para medir
+            latência de fila no probe end-to-end"
+          features: [ F23, F20, F22, F24 ]
+        - phase: "P3"
+          label: "Análise e governança de workload"
+          note: "Depende de dados coletados pelas fases P1 e P2; F21 e F25 requerem
+            aprovação do project-manager e validação com cliente 121Labs antes
+            de qualquer implementação"
+          features: [ F19, F21, F25 ]
+
+    clarifications:
+      items:
+        - q: "specification.rules tinha 3 regras de upgrade de versão N8N, fora do escopo
+            do projeto. Como alinhar ao escopo de tunning?"
+          a: "Substituir as 3 regras por: (1) operações em wf001 exigem janela de
+            manutenção + backup validado; (2) toda mudança exige evidências
+            métricas antes/depois no SESSION_REPORT; (3) alterações em workflows
+            de clientes requerem aprovação do project-manager."
+        - q: "Perfis system_architect, N8N_specialist e test_engineer tinham foco e
+            responsabilidades voltados a upgrade de versão N8N. Como alinhar ao
+            escopo de tunning?"
+          a: "Reescrever foco e responsabilidades dos 3 perfis: system_architect →
+            arquitetura de tunning + gates wfdb01→wf001; N8N_specialist →
+            análise de volume de execuções + métricas N8N (F16/F22/F24);
+            test_engineer → validação pré/pós-tunning por feature (F16–F25) com
+            evidências métricas."
+        - q: "Qual é a sequência de execução das features F16–F25 para o speckit.plan?"
+          a: "Sequência ANA-001 por prioridade de impacto: P1 (paralelo) F16 → F17 → F18;
+            P2 F23 → F20 → F22 → F24; P3 F19 → F21 → F25."
+        - q: "Qual é a versão atual do N8N em wf001? F24 requer >= 0.214."
+          a: "Versão 2.6.4 — já atende o requisito de F24 (>= 0.214). Nenhuma troca de
+            versão é necessária para habilitar as métricas de concorrência."
+        - q: "F19 requer gate externo de aprovação com clientes 121Labs e/ou Evolution API
+            antes de publicar recomendações?"
+          a: "Não — F19 é análise e recomendação interna (Vya). Aprovação pelo
+            project-manager é suficiente. Sem gate externo com clientes."
