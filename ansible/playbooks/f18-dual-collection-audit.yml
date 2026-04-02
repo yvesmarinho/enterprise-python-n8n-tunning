@@ -1,0 +1,38 @@
+---
+# ansible/playbooks/f18-dual-collection-audit.yml
+# F18 — Auditoria de dupla coleta Prometheus (somente leitura)
+# Inspeciona prod-collector-api SEM modificações; gera JSON de inspeção.
+# Execução: ansible-playbook f18-dual-collection-audit.yml -i ansible/inventory/ -l wfdb01
+
+# --- Play 1: SPA Knock (obrigatório para acesso VPS) ---
+- name: SPA Knock — wfdb01
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [ always ]
+  tasks:
+    - name: Knock SSH SPA via fwknop
+      ansible.builtin.command:
+        cmd: fwknop --rc-file ~/.fwknoprc -n wfdb01
+      changed_when: true
+      check_mode: false
+
+    - name: Pausa pós-knock
+      ansible.builtin.pause:
+        seconds: 3
+
+    - name: Wait for SSH port 5010
+      ansible.builtin.wait_for:
+        host: 86.48.31.149
+        port: 5010
+        timeout: 30
+      check_mode: false
+
+# --- Play 2: F18 — Auditoria somente leitura de dupla coleta ---
+- name: F18 — Dual-Collection Audit (wfdb01)
+  hosts: wfdb01
+  become: false
+  gather_facts: true
+  tags: [ f18, f18-audit ]
+  roles:
+    - role: prometheus_config

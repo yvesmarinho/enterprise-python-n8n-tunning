@@ -2,8 +2,8 @@
 
 **Projeto**: `enterprise-python-n8n-tunning`
 **Criado em**: 2026-04-01T13:38:39Z
-**Last Updated**: 2026-04-01T13:38:39Z
-**Last Session**: N/A
+**Last Updated**: 2026-04-02 — Consolidação regras Copilot
+**Last Session**: 2026-04-02
 
 ---
 

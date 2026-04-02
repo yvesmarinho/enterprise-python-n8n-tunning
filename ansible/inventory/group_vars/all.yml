@@ -1,0 +1,23 @@
+---
+# ansible/inventory/group_vars/all.yml
+# Variáveis compartilhadas entre todos os hosts (sem credenciais)
+# Projeto: enterprise-python-n8n-tunning — F16, F17, F18
+
+# --- N8N ---
+n8n_compose_dir: /opt/docker_user/n8n
+n8n_queue_alert_threshold: 100 # n8n_queue_depth trigger para alerta
+n8n_prune_max_age_hours: 720 # 30 dias de retenção de execuções
+n8n_prune_timeout_ms: 3600000 # 1 hora de timeout na purgação
+
+# --- Feature flags (false por padrão; ativas via playbook vars) ---
+n8n_f16_enabled: false # Métricas de fila (F16)
+n8n_f17_enabled: false # Purgação automática execution_entity (F17)
+
+# --- PostgreSQL (wfdb02 — produção) ---
+db_host: 82.197.64.145
+db_port: 6432 # PostgreSQL direto
+db_pgbouncer_port: 5432 # Pgbouncer
+db_name: n8n_db
+
+# --- Diretório de backup temporário ---
+backup_dir: /tmp

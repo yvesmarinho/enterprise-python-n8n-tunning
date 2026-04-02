@@ -1,0 +1,19 @@
+---
+# ansible/roles/postgres_tuning/defaults/main.yml
+# Defaults para o role postgres_tuning
+# Projeto: enterprise-python-n8n-tunning — F17
+
+# --- Conexão PostgreSQL ---
+db_host: 82.197.64.145
+db_port: 6432
+db_name: n8n_db
+db_user: n8n # sobrescrever via vault ou env var PG_USER
+
+# --- Backup ---
+backup_dir: /tmp
+
+# --- pg_stat_statements (Vetor B) ---
+# ATENÇÃO: Vetor B requer restart do PostgreSQL.
+# Sempre validar em home011 antes de executar em wfdb02.
+pg_stat_statements_max: 10000
+pg_stat_statements_track: all

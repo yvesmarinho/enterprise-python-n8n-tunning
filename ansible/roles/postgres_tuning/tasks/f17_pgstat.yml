@@ -1,0 +1,64 @@
+---
+# ansible/roles/postgres_tuning/tasks/f17_pgstat.yml
+# Ativa pg_stat_statements via ALTER SYSTEM + reinício do PostgreSQL (F17 — Vetor B)
+# ⚠️ ATENÇÃO: Requer restart do PostgreSQL (possível downtime breve)
+# ⚠️ GATE OBRIGATÓRIO: Executar f17_setup_dev.yml + validar em home011 ANTES de wfdb02
+# Controlado por: f17_pgstat_approved: true (deve ser passado explicitamente)
+
+- name: F17 | pgstat — Configurar shared_preload_libraries via ALTER SYSTEM
+  community.postgresql.postgresql_set:
+    name: shared_preload_libraries
+    value: pg_stat_statements
+    login_host: "{{ db_host }}"
+    login_port: "{{ db_port }}"
+    login_user: "{{ db_user | default('n8n') }}"
+    login_password: "{{ lookup('env', 'PG_PASSWORD') }}"
+    db: "{{ db_name }}"
+  register: pgset_result
+  tags: [ f17, f17-pgstat ]
+
+- name: F17 | pgstat — Restart controlado do PostgreSQL (aplica
+    shared_preload_libraries)
+  ansible.builtin.service:
+    name: postgresql
+    state: restarted
+  become: true
+  when: pgset_result.changed
+  tags: [ f17, f17-pgstat ]
+
+- name: F17 | pgstat — Aguardar PostgreSQL reiniciar
+  ansible.builtin.wait_for:
+    host: "{{ db_host }}"
+    port: "{{ db_port }}"
+    timeout: 120
+    delay: 5
+  tags: [ f17, f17-pgstat ]
+
+- name: F17 | pgstat — Criar extensão pg_stat_statements
+  community.postgresql.postgresql_ext:
+    name: pg_stat_statements
+    db: "{{ db_name }}"
+    login_host: "{{ db_host }}"
+    login_port: "{{ db_port }}"
+    login_user: "{{ db_user | default('n8n') }}"
+    login_password: "{{ lookup('env', 'PG_PASSWORD') }}"
+    state: present
+  tags: [ f17, f17-pgstat ]
+
+- name: F17 | pgstat — Verificar pg_stat_statements ativo
+  community.postgresql.postgresql_query:
+    db: "{{ db_name }}"
+    login_host: "{{ db_host }}"
+    login_port: "{{ db_port }}"
+    login_user: "{{ db_user | default('n8n') }}"
+    login_password: "{{ lookup('env', 'PG_PASSWORD') }}"
+    query: "SELECT extname FROM pg_extension WHERE extname = 'pg_stat_statements'"
+  register: ext_check
+  tags: [ f17, f17-pgstat ]
+
+- name: F17 | pgstat — Assert pg_stat_statements está ativo
+  ansible.builtin.assert:
+    that: ext_check.rowcount | int == 1
+    fail_msg: "pg_stat_statements NÃO encontrado em pg_extension"
+    success_msg: "pg_stat_statements ativo ✓"
+  tags: [ f17, f17-pgstat ]

@@ -1,0 +1,7 @@
+---
+# ansible/inventory/group_vars/wf001.yml
+# Overrides para wf001 (N8N produção)
+# ⚠️ PRODUÇÃO — modificações somente durante janela de manutenção aprovada
+
+environment: wf001
+n8n_metrics_port: 5001 # Porta de métricas do N8N em wf001

@@ -1,3 +1,4 @@
+---
 prompt:
   role: user
   content:
@@ -32,6 +33,11 @@ prompt:
             `/opt/docker_user/n8n`."
           - "Atenção à configuração de conexão SSH SPA contidos em
             `.secrets/ssh.json`"
+          - "Gerar plano de configuração do ambiente de desenvolvimento local
+            para replicar o ambiente de produção, utilizando Docker e Ansible
+            para garantir consistência entre os ambientes"
+          - "Atualizações do pgbouncer devem ser a última tarefa antes da
+            validação."
     infrastructure:
       proxy: "Traefik — todos os servidores Docker utilizam Traefik como proxy
         reverso"
@@ -108,6 +114,34 @@ prompt:
             - "Acesso via SSH SPA conforme .secrets/ssh.json"
             - "Servidor VPS USA/East Coast/New York — latência de rede otimizada
               para clientes globais"
+        - hostname: "home011.localdomain"
+          ip: "192.168.15.198"
+          role: "Servidor de Banco de dados de desenvolvimento — hospeda o PostgreSQL,
+            base de dados do N8N"
+          servicos:
+            - "PostgresSQL versão 16 - porta 6432"
+            - "Pgbouncer (pool de conexões para PostgreSQL) porta 5432"
+            - "Node Exporter (monitoramento de banco de dados via Prometheus)"
+            - "Outros containers de monitoramento e infraestrutura"
+          path_docker_derfault: "/opt/docker"
+          notas:
+            - "Ambiente de desenvolvimento — alterações podem ser feitas sem
+              janela de manutenção, mas backup recomendado antes de mudanças
+              destrutivas"
+            - "Acesso via SSH SPA conforme .secrets/ssh.json"
+            - "Notebook rede local"
+        - hostname: "home016.localdomain"
+          ip: "192.168.15.117"
+          role: "Desktop (este computador) docker de desenvolvimento — hospeda o N8N"
+          servicos:
+            - "Docker versão 29.3.1"
+            - "Docker composer plugin 29.3.1"
+          notas:
+            - "Ambiente de desenvolvimento — alterações podem ser feitas sem
+              janela de manutenção, mas backup recomendado antes de mudanças
+              destrutivas"
+            - "Acesso cli direto na maquina"
+            - "Desktop rede local"
     folder_structure:
       - ".vscode - Configurações VS Code e MCP (geradas automaticamente)"
       - ".github - Workflows de GitHub Actions para automação de CI/CD e AI

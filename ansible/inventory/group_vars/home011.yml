@@ -1,0 +1,15 @@
+---
+# ansible/inventory/group_vars/home011.yml
+# Variáveis do ambiente de desenvolvimento local (home011.localdomain)
+# Usado como DEV GATE obrigatório para Vetor B (pg_stat_statements) antes de wfdb02
+
+environment: home011
+local_dev_user: "{{ lookup('env', 'USER') }}" # usuário local atual
+
+# PostgreSQL local em home011
+db_host: 192.168.15.198
+db_port: 6432
+db_name: n8n_db # database de teste para validação do Vetor B
+
+# SPA não é necessário para acesso local
+ansible_ssh_common_args: ""

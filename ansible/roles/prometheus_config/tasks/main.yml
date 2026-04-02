@@ -1,0 +1,7 @@
+---
+# ansible/roles/prometheus_config/tasks/main.yml
+# Entry point do role prometheus_config — F18 audit (somente leitura)
+
+- name: F18 dual-collection audit tasks
+  ansible.builtin.include_tasks: f18_audit.yml
+  tags: [f18, f18-audit]

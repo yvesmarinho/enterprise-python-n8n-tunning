@@ -1,0 +1,11 @@
+# ansible/roles/postgres_tuning/templates/postgresql_override.conf.j2
+# Configuração PostgreSQL equivalente ao wfdb02 para validação em home011 (Vetor B)
+# Aplicada em /etc/postgresql/16/main/conf.d/n8n_tunning.conf
+
+# pg_stat_statements — Vetor B F17
+shared_preload_libraries = 'pg_stat_statements'
+pg_stat_statements.track = {{ pg_stat_statements_track | default('all') }}
+pg_stat_statements.max = {{ pg_stat_statements_max | default(10000) }}
+
+# Gerado por ansible/roles/postgres_tuning — enterprise-python-n8n-tunning
+# Data: {{ ansible_date_time.iso8601 }}

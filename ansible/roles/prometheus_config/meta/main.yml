@@ -1,0 +1,16 @@
+---
+galaxy_info:
+  role_name: prometheus_config
+  author: enterprise-python-n8n-tunning
+  description: >
+    Auditoria somente leitura de dupla coleta Prometheus/Pushgateway (F18).
+    Inspeciona prod-collector-api sem modificação; valida ProvenanceGate. NÃO
+    altera nenhuma configuração do prod-collector-api.
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - "12"
+
+dependencies: []

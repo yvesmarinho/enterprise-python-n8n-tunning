@@ -1,0 +1,19 @@
+# .ansible-lint — Configuração do ansible-lint para este projeto
+# Projeto: enterprise-python-n8n-tunning
+
+# Perfil: moderate (permite algumas flexibilidades)
+profile: moderate
+
+# Avisos que podem ser ignorados para este projeto
+warn_list:
+  - var-naming[no-role-prefix]   # variáveis simples sem prefixo de role são aceitáveis
+  - var-naming[no-reserved]      # 'environment' usado internacionalmente em group_vars
+
+# Ignorar erros de schema galaxy (Debian 12 não reconhecido pela galeria)
+skip_list:
+  - schema[meta]                 # schema galaxy: Debian 12 não listado nas versões aceitáveis
+
+# Excluir diretórios não relevantes
+exclude_paths:
+  - .cache/
+  - tmp/

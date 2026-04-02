@@ -1,0 +1,13 @@
+---
+# ansible/inventory/group_vars/wfdb01.yml
+# Overrides para wfdb01 (N8N teste + observabilidade)
+
+environment: wfdb01
+vm_url: http://victoriametrics:8428 # VictoriaMetrics (rede Docker interna apenas)
+n8n_metrics_url: https://testn8n.vya.digital # Endpoint métricas N8N (via Traefik)
+n8n_services:
+  # Nomes reais dos serviços em wfdb01
+  - n8n_editor
+  - n8n_worker
+  - n8n_webhook
+  - n8n_mcp

@@ -1,0 +1,51 @@
+---
+# ansible/roles/postgres_tuning/tasks/f17_setup_dev.yml
+# Prepara home011 com configuração equivalente ao wfdb02 para validar Vetor B
+# (pg_stat_statements) ANTES de aplicar em produção (wfdb02)
+# Execução: --tags f17-setup-dev -l home011
+
+- name: F17 | Setup dev — Coletar pg_settings relevantes do wfdb02
+  community.postgresql.postgresql_query:
+    db: "{{ db_name }}"
+    login_host: "{{ hostvars['wfdb02.vya.digital']['ansible_host'] }}"
+    login_port: "{{ hostvars['wfdb02.vya.digital']['db_port'] | default(6432) }}"
+    login_user: "{{ db_user | default('n8n') }}"
+    login_password: "{{ lookup('env', 'PG_PASSWORD') }}"
+    query: >
+      SELECT name, setting, unit FROM pg_settings WHERE name IN (
+        'shared_preload_libraries', 'max_connections',
+        'work_mem', 'shared_buffers'
+      )
+  register: wfdb02_settings
+  delegate_to: localhost
+  run_once: true
+  tags: [ f17, f17-setup-dev ]
+
+- name: F17 | Setup dev — Aplicar configuração equivalente via template em home011
+  ansible.builtin.template:
+    src: postgresql_override.conf.j2
+    dest: /etc/postgresql/16/main/conf.d/n8n_tunning.conf
+    owner: postgres
+    group: postgres
+    mode: "0640"
+    backup: true
+  become: true
+  tags: [ f17, f17-setup-dev ]
+
+- name: F17 | Setup dev — Criar database n8n_db em home011 (se não existir)
+  community.postgresql.postgresql_db:
+    name: "{{ db_name }}"
+    login_host: "{{ ansible_host }}"
+    login_port: "{{ db_port | default(6432) }}"
+    login_user: postgres
+    state: present
+  become: true
+  become_user: postgres
+  tags: [ f17, f17-setup-dev ]
+
+- name: F17 | Setup dev — Aguardar PostgreSQL disponível em home011
+  ansible.builtin.wait_for:
+    host: "{{ ansible_host }}"
+    port: "{{ db_port | default(6432) }}"
+    timeout: 60
+  tags: [ f17, f17-setup-dev ]

@@ -1,0 +1,33 @@
+---
+# ansible/roles/n8n_env/defaults/main.yml
+# Defaults para o role n8n_env
+# Projeto: enterprise-python-n8n-tunning — F16, F17
+
+# Diretório base do compose (pode ser sobrescrito por group_vars)
+n8n_compose_dir: /opt/docker_user/n8n
+
+# --- Feature flags ---
+n8n_f16_enabled: false # Métricas de fila N8N (F16)
+n8n_f17_enabled: false # Purgação execution_entity (F17)
+
+# --- F16: Métricas de fila ---
+n8n_metrics_enabled: "true"
+n8n_queue_health_check_active: "true"
+n8n_metrics_include_queue_metrics: "true"
+
+# --- F17: Purgação automática ---
+n8n_executions_data_prune: "true"
+n8n_prune_max_age_hours: 720 # horas (30 dias)
+n8n_prune_timeout_ms: 3600000 # ms
+
+# Porta onde o N8N expõe /metrics
+n8n_metrics_port: 5001
+
+# Nomes dos serviços N8N no docker-compose.yaml
+# (sobrescrever em group_vars quando a nomenclatura for diferente de 'n8n')
+n8n_services:
+  - n8n
+
+# URL do endpoint de métricas (via Traefik ou host direto)
+n8n_metrics_url: "http://localhost:{{ n8n_metrics_port }}/metrics"
+n8n_metrics_endpoint: /metrics

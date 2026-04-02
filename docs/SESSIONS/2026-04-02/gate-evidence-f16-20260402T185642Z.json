@@ -1,0 +1,38 @@
+{
+  "feature_id": "F16",
+  "environment": "wfdb01",
+  "collected_at": "2026-04-02T18:56:42.629128+00:00",
+  "vm_access": "skipped_direct_only",
+  "metrics": {
+    "n8n_scaling_mode_queue_jobs_active": {
+      "value": 0.0,
+      "labels": {
+        "source": "direct_scrape"
+      },
+      "found": true
+    },
+    "n8n_scaling_mode_queue_jobs_waiting": {
+      "value": 0.0,
+      "labels": {
+        "source": "direct_scrape"
+      },
+      "found": true
+    },
+    "n8n_scaling_mode_queue_jobs_completed": {
+      "value": 25.0,
+      "labels": {
+        "source": "direct_scrape"
+      },
+      "found": true
+    },
+    "n8n_scaling_mode_queue_jobs_failed": {
+      "value": 0.0,
+      "labels": {
+        "source": "direct_scrape"
+      },
+      "found": true
+    }
+  },
+  "status": "pass",
+  "error": null
+}

@@ -1,0 +1,22 @@
+---
+# ansible/roles/n8n_env/files/alert_rules/n8n_queue_alert.yml
+# Alert rule Prometheus/VictoriaMetrics para profundidade da fila N8N (F16)
+
+groups:
+  - name: n8n_queue
+    interval: 30s
+    rules:
+      - alert: N8NQueueDepthHigh
+        expr: n8n_queue_depth > {{ n8n_queue_alert_threshold | default(100) }}
+        for: 2m
+        labels:
+          severity: warning
+          feature: F16
+          team: platform
+        annotations:
+          summary: "Fila N8N com profundidade elevada em {{ $labels.instance }}"
+          description: >
+            A métrica n8n_queue_depth está acima do threshold configurado ({{
+            n8n_queue_alert_threshold | default(100) }}) por mais de 2 minutos.
+            Valor atual: {{ $value }}.
+          runbook: "Verificar carga de workflows e capacidade de workers do N8N."

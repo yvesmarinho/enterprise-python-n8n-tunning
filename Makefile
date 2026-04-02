@@ -45,3 +45,24 @@ clean:
 ## Carrega variáveis MCP do .secrets/.env e orienta a abrir o VS Code
 mcp:
 	@bash scripts/load-mcp.sh
+
+## Executa playbook F16 (métricas de fila) em wfdb01
+f16:
+	ansible-playbook ansible/playbooks/f16-queue-metrics.yml \
+	  -i ansible/inventory/ -l wfdb01
+
+## Executa playbook F17 (purgação + pg_stat_statements) em wfdb01
+f17:
+	ansible-playbook ansible/playbooks/f17-postgres-tuning.yml \
+	  -i ansible/inventory/ -l wfdb01
+
+## Executa playbook F18 (auditoria dupla coleta — somente leitura) em wfdb01
+f18:
+	ansible-playbook ansible/playbooks/f18-dual-collection-audit.yml \
+	  -i ansible/inventory/ -l wfdb01
+
+## Executa ansible-lint em todos os playbooks F16/F17/F18
+lint-playbooks:
+	ansible-lint ansible/playbooks/f16-queue-metrics.yml \
+	  ansible/playbooks/f17-postgres-tuning.yml \
+	  ansible/playbooks/f18-dual-collection-audit.yml

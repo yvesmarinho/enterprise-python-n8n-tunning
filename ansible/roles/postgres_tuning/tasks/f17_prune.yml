@@ -1,0 +1,48 @@
+---
+# ansible/roles/n8n_env/tasks/f17_prune.yml
+# Ativa EXECUTIONS_DATA_PRUNE via docker-compose.override.yml (F17 — Vetor A)
+# Delegado ao role n8n_env com n8n_f17_enabled=true
+# Sem restart do PostgreSQL (Vetor A é zero-downtime)
+
+- name: F17 | Prune — Assert docker-compose.yaml exists
+  ansible.builtin.stat:
+    path: "{{ n8n_compose_dir }}/docker-compose.yaml"
+  register: compose_stat
+  tags: [ f17, f17-prune, n8n_env ]
+
+- name: F17 | Prune — Fail if docker-compose.yaml not found
+  ansible.builtin.assert:
+    that: compose_stat.stat.exists
+    fail_msg: "docker-compose.yaml não encontrado em {{ n8n_compose_dir }}"
+  tags: [ f17, f17-prune, n8n_env ]
+
+- name: F17 | Prune — Deploy docker-compose.override.yml com F17 ativo
+  ansible.builtin.template:
+    src: "{{ role_path }}/../n8n_env/templates/docker-compose.override.j2"
+    dest: "{{ n8n_compose_dir }}/docker-compose.override.yml"
+    owner: docker_user
+    group: docker_user
+    mode: "0640"
+    backup: true
+  vars:
+    n8n_f16_enabled: true # preserva F16 metrics (já activo desde T017)
+    n8n_f17_enabled: true
+  register: override_deploy
+  tags: [ f17, f17-prune, n8n_env ]
+
+- name: F17 | Prune — Restart n8n para aplicar variável EXECUTIONS_DATA_PRUNE
+  ansible.builtin.command:
+    cmd: docker compose up -d n8n
+    chdir: "{{ n8n_compose_dir }}"
+  become: true
+  become_user: docker_user
+  when: override_deploy.changed
+  tags: [ f17, f17-prune, n8n_env ]
+
+- name: F17 | Prune — Wait for N8N to come back up
+  ansible.builtin.wait_for:
+    host: "{{ ansible_host }}"
+    port: "{{ n8n_metrics_port | default(5001) }}"
+    timeout: 120
+    delay: 5
+  tags: [ f17, f17-prune, n8n_env ]

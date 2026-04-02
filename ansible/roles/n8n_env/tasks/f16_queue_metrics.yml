@@ -1,0 +1,50 @@
+---
+# ansible/roles/n8n_env/tasks/f16_queue_metrics.yml
+# Habilita métricas de fila N8N via docker-compose.override.yml (F16)
+# IDEMPOTENTE: re-execução deve resultar em changed=0 se já configurado
+
+- name: F16 | Assert docker-compose.yaml exists
+  ansible.builtin.stat:
+    path: "{{ n8n_compose_dir }}/docker-compose.yaml"
+  register: compose_stat
+  tags: [ f16, n8n_env ]
+
+- name: F16 | Fail if docker-compose.yaml not found
+  ansible.builtin.assert:
+    that: compose_stat.stat.exists
+    fail_msg: "docker-compose.yaml não encontrado em {{ n8n_compose_dir }}"
+  tags: [ f16, n8n_env ]
+
+- name: F16 | Deploy docker-compose.override.yml
+  ansible.builtin.template:
+    src: docker-compose.override.j2
+    dest: "{{ n8n_compose_dir }}/docker-compose.override.yml"
+    owner: docker_user
+    group: docker_user
+    mode: "0644" # world-readable: archaris precisa ler para docker compose
+    backup: true
+  become: true
+  become_user: root
+  register: override_deploy
+  tags: [ f16, n8n_env ]
+
+- name: F16 | Restart n8n services (somente se override mudou)
+  ansible.builtin.command:
+    cmd: "docker compose up -d {{ n8n_services | default(['n8n']) | join(' ') }}"
+    chdir: "{{ n8n_compose_dir }}"
+  become: true
+  become_user: root
+  when: override_deploy.changed
+  tags: [ f16, n8n_env ]
+
+- name: F16 | Wait for N8N metrics endpoint to respond
+  ansible.builtin.uri:
+    url: "{{ n8n_metrics_url | default('https://testn8n.vya.digital') }}/metrics"
+    status_code: 200
+    timeout: 10
+    validate_certs: true
+  register: metrics_check
+  retries: 12
+  delay: 10
+  until: metrics_check.status == 200
+  tags: [ f16, n8n_env ]

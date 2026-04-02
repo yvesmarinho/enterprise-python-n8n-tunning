@@ -1,0 +1,13 @@
+---
+# ansible/roles/n8n_env/tasks/main.yml
+# Entry point do role n8n_env — delega para sub-tasks por feature
+
+- name: F16 queue metrics tasks
+  ansible.builtin.include_tasks: f16_queue_metrics.yml
+  when: n8n_f16_enabled | bool
+  tags: [ f16, n8n_env ]
+
+- name: F17 prune env tasks
+  ansible.builtin.include_tasks: f17_prune.yml
+  when: n8n_f17_enabled | bool
+  tags: [ f17, n8n_env ]

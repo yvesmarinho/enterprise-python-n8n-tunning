@@ -1,0 +1,14 @@
+---
+# ansible/roles/prometheus_config/defaults/main.yml
+# Defaults para o role prometheus_config
+# Projeto: enterprise-python-n8n-tunning — F18
+
+# URL do VictoriaMetrics (sobrescrever por group_vars)
+vm_url: http://86.48.31.149:8428
+
+# Feature e ambiente (usados em labels e relatórios)
+feature_id: F18
+environment: wfdb01
+
+# Lookback para PromQL (modo dual-collection)
+promql_lookback_minutes: 60

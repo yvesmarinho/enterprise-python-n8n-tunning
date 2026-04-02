@@ -1,0 +1,45 @@
+---
+# ansible/roles/postgres_tuning/tasks/f17_backup.yml
+# Backup pg_dump do banco n8n_db (wfdb02) antes de qualquer tunning F17
+# IDEMPOTENTE: re-execução gera novo timestamped dump (não sobrescreve)
+
+- name: F17 | Backup — pg_dump n8n_db para arquivo gzip
+  ansible.builtin.shell:
+    cmd: >
+      pg_dump -h {{ db_host }} -p {{ db_port }} -U {{ db_user | default('n8n')
+      }} -Fc {{ db_name }} | gzip > /tmp/n8n_backup_{{
+      ansible_date_time.iso8601_basic_short }}.sql.gz
+  environment:
+    PGPASSWORD: "{{ lookup('env', 'PG_PASSWORD') }}"
+  register: dump_result
+  changed_when: true
+  tags: [ f17, f17-backup ]
+
+- name: F17 | Backup — verificar tamanho do dump
+  ansible.builtin.stat:
+    path: "/tmp/n8n_backup_{{ ansible_date_time.iso8601_basic_short }}.sql.gz"
+  register: dump_stat
+  tags: [ f17, f17-backup ]
+
+- name: F17 | Backup — assert dump não está vazio
+  ansible.builtin.assert:
+    that: dump_stat.stat.size > 0
+    fail_msg: "Backup falhou — arquivo vazio ou inexistente"
+    success_msg: "Backup OK — tamanho: {{ dump_stat.stat.size }} bytes"
+  tags: [ f17, f17-backup ]
+
+- name: F17 | Backup — gerar SHA-256 do dump
+  ansible.builtin.shell:
+    cmd: "sha256sum /tmp/n8n_backup_{{ ansible_date_time.iso8601_basic_short
+      }}.sql.gz | tee /tmp/n8n_backup_latest.sha256"
+  register: sha256_result
+  changed_when: true
+  tags: [ f17, f17-backup ]
+
+- name: F17 | Backup — copiar SHA-256 para o controlador local
+  ansible.builtin.fetch:
+    src: /tmp/n8n_backup_latest.sha256
+    dest: "docs/SESSIONS/{{ lookup('pipe', 'date +%Y-%m-%d')
+      }}/n8n_backup_latest.sha256"
+    flat: true
+  tags: [ f17, f17-backup ]

@@ -1,0 +1,19 @@
+---
+# ansible/inventory/group_vars/wfdb02.yml
+# Overrides para wfdb02 (PostgreSQL produção + pg_stat_statements — F17)
+
+environment: wfdb02
+
+# --- Banco de dados DEV (usado pelo N8N em wfdb01) ---
+db_host: 82.197.64.145
+db_port: 6432 # PostgreSQL direto (bypass PgBouncer — necessário para pg_dump)
+db_name: n8n_dev_db
+db_user: n8n_user
+
+# --- Banco de dados PROD (usado pelo N8N em wf001) ---
+# db_name_prod: n8n_db  # Referência — não usar aqui (wf001 phase 2)
+
+# --- pg_stat_statements (Vetor B — F17) ---
+# ⚠️ BLOQUEADO: requer aprovação explícita via -e f17_pgstat_approved=true
+pg_stat_statements_max: 10000
+pg_stat_statements_track: all

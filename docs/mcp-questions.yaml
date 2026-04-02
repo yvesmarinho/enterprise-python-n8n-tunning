@@ -1,5 +1,6 @@
+---
 # Configuracao MCP para projeto enterprise-python-n8n-tunning
-# Gerado a partir de docs/objetivo.yaml — sincronizado em 2026-04-01
+# Gerado a partir de docs/objetivo.yaml — sincronizado em 2026-04-02
 
 metadata:
   project_name: "enterprise-python-n8n-tunning"
@@ -14,7 +15,7 @@ metadata:
     - "docs/objetivo.yaml"
     - "docs/n8n_perf_ANA001_20260101_20260331_20260331T154646.md"
   generated_on: "2026-04-01"
-  last_updated: "2026-04-01"
+  last_updated: "2026-04-02"
 
 project_context:
   description: >
@@ -23,8 +24,11 @@ project_context:
     ajustes para melhorar o desempenho do N8N. A analise ANA-001 (90 dias,
     jan-mar/2026) identificou ofensores de volume (121Labs PABX 429K exec,
     WhatsApp Gateway 84K exec) e lacunas de instrumentacao (fila, memoria,
-    sub-100ms) como causas raiz. O upgrade versao a versao (2.6.4 -> latest) e
-    uma das acoes do plano.
+    sub-100ms) como causas raiz. O escopo principal e instrumentacao e correcao
+    critica (P1: F16/F17/F18), observabilidade complementar (P2:
+    F23/F20/F22/F24) e governanca de workload (P3: F19/F21/F25). Regras de
+    upgrade de versao N8N foram descartadas como fora do escopo deste projeto
+    (clarificacao 2026-04-02).
   source_version: "2.6.4"
   target_version: "latest"
   latest_resolution:
@@ -40,9 +44,9 @@ project_context:
   skip_versions_allowed: false
   response_expected: >
     Documentos e codigos Python e Ansible para: (1) habilitar metricas de fila
-    N8N, (2) purgacao e tunning do PostgreSQL, (3) corrigir dupla coleta
-    Prometheus, (4) automatizar upgrade incremental versao a versao, (5) probe
-    sintetico end-to-end.
+    N8N (F16), (2) purgacao e tunning do PostgreSQL (F17), (3) corrigir dupla
+    coleta Prometheus (F18), (4) probe sintetico end-to-end (F20), (5) analise
+    de governanca de throughput dos workflows de alto volume (F19/F21/F25).
   workflow_reference: "objetivo.yaml -> Copilot -> mcp-questions.yaml -> MCP automatico"
   infrastructure:
     proxy: "Traefik — todos os servidores Docker utilizam Traefik como proxy reverso"
@@ -93,6 +97,46 @@ project_context:
           - "F17 (pg_stat_statements, postgres_exporter, pg_dump) executadas
             neste servidor"
           - "Acesso via SSH SPA conforme .secrets/ssh.json"
+      - hostname: "wf008.vya.digital"
+        ip: "31.220.103.208"
+        role: "Servidor Docker de producao — hospeda o Journey System e outros
+          containers de aplicacao proprios da Vya"
+        services:
+          - "Journey System (sistema interno de jornada de campanhas)"
+          - "Outros containers de aplicacao em producao"
+        path_docker_default: "/opt/docker_user"
+        notes:
+          - "Ambiente de producao — alteracoes exigem janela de manutencao e
+            backup validado"
+          - "Mesmo IP que wf001 (31.220.103.208) — diferentes portas/subdomínios"
+      - hostname: "home011.localdomain"
+        ip: "192.168.15.198"
+        role: "Servidor de Banco de dados de desenvolvimento — hospeda o PostgreSQL,
+          base de dados do N8N"
+        services:
+          - "PostgreSQL versao 16 — porta 6432"
+          - "Pgbouncer (pool de conexoes para PostgreSQL) — porta 5432"
+          - "Node Exporter (monitoramento de banco de dados via Prometheus)"
+          - "Outros containers de monitoramento e infraestrutura"
+        path_docker_default: "/opt/docker"
+        notes:
+          - "Ambiente de desenvolvimento — alteracoes podem ser feitas sem
+            janela de manutencao, mas backup recomendado antes de mudancas
+            destrutivas"
+          - "Acesso via SSH SPA conforme .secrets/ssh.json"
+          - "Notebook rede local"
+      - hostname: "home016.localdomain"
+        ip: "192.168.15.117"
+        role: "Desktop (este computador) docker de desenvolvimento — hospeda o N8N"
+        services:
+          - "Docker versao 29.3.1"
+          - "Docker Compose plugin 29.3.1"
+        notes:
+          - "Ambiente de desenvolvimento — alteracoes podem ser feitas sem
+            janela de manutencao, mas backup recomendado antes de mudancas
+            destrutivas"
+          - "Acesso cli direto na maquina"
+          - "Desktop rede local"
   test_environment:
     host: "wfdb01.vya.digital"
     ip: "86.48.31.149"
@@ -110,8 +154,8 @@ workflow:
     - stage: "constitution"
       acceptance: "Principios, regras e limites de seguranca definidos"
     - stage: "plan"
-      acceptance: "Plano de upgrade com trilha versao a versao, riscos, rollback e
-        metricas"
+      acceptance: "Plano de tunning com trilha de features P1/P2/P3, riscos, rollback
+        e metricas de antes/depois"
     - stage: "tasks"
       acceptance: "Tarefas ordenadas por dependencia e criticidade"
     - stage: "implement"
@@ -120,28 +164,34 @@ workflow:
 folder_structure:
   - ".vscode - Configuracoes VS Code e MCP (geradas automaticamente)"
   - ".github - Workflows de GitHub Actions para automacao de CI/CD e AI agents"
-  - "src - Codigo-fonte do projeto (estrutura especifica por tipo)"
   - ".specify - Speckit framework configuration e templates"
-  - "test - Testes automatizados (framework baseado na linguagem)"
+  - "src - Codigo-fonte do projeto (estrutura especifica por tipo)"
+  - "ansible - Playbooks Ansible para automacao de tunning (F16-F25)"
+  - "specs - Especificacoes Speckit por feature"
+  - "tests - Testes automatizados (framework baseado na linguagem)"
   - "docs - Documentacao (gerada automaticamente)"
-  - "pattern_code - Templates e padroes de codigo reutilizaveis"
+  - "docs/SESSIONS - Historico cronologico de sessoes"
   - "scripts - Scripts de automacao inteligente"
-  - "objetivo.yaml - Especificacao detalhada do projeto"
-  - "mcp-questions.yaml - Configuracao gerada pelo Copilot"
+  - "tmp - Arquivos temporarios por sessao (gitignored exceto .gitkeep; limpar
+    no end-session)"
+  - "docs/objetivo.yaml - Especificacao detalhada do projeto"
+  - "docs/mcp-questions.yaml - Configuracao gerada pelo Copilot"
 
 profiles:
   - role: "system_architect"
     skill_level: "expert"
     description: "Arquiteto em solucoes Docker com Linux Debian 12."
     focus:
-      - "Estrategia de upgrade entre versoes do n8n (2.6.4 -> latest) com
-        execucao versao a versao"
-      - "Compatibilidade entre imagem, volumes, banco e variaveis de ambiente"
-      - "Definicao de gates tecnicos para promocao entre ambientes"
+      - "Arquitetura de tunning de performance para stack N8N + PostgreSQL +
+        Prometheus/VictoriaMetrics em wf001 e wfdb01"
+      - "Estrategia de rollback seguro para operacoes de tunning — snapshots de
+        volumes Docker e backup PostgreSQL"
+      - "Definicao de gates tecnicos para promocao de mudancas de wfdb01 (teste)
+        para wf001 (producao)"
     responsibilities:
-      - "Definir arquitetura de atualizacao com rollback seguro"
+      - "Definir arquitetura de cada acao de tunning com isolamento de risco"
       - "Aprovar sequencia de execucao por etapas do workflow Speckit"
-      - "Definir criterios de risco e janela de manutencao"
+      - "Definir janelas de manutencao e criterios de rollback por feature"
     decision_criteria:
       - "Priorizar disponibilidade e integridade de dados"
       - "Evitar mudancas nao reversiveis sem backup validado"
@@ -150,13 +200,15 @@ profiles:
     skill_level: "expert"
     description: "Especialista em n8n e automacao de workflows."
     focus:
-      - "Quebras de compatibilidade entre versoes do n8n"
-      - "Impacto em nodes, credenciais, executions e filas"
-      - "Validacao funcional de workflows criticos"
+      - "Analise de volume e padroes de execucao dos workflows criticos (121Labs
+        PABX 429K exec, WhatsApp Gateway 84K exec)"
+      - "Configuracao de metricas N8N: fila (F16), concorrencia (F24) e buckets
+        sub-100ms (F22)"
+      - "Validacao funcional de workflows apos cada acao de tunning"
     responsibilities:
-      - "Mapear riscos por versao e notas de release"
-      - "Definir checklist de validacao pos-upgrade"
-      - "Validar comportamento de workflows em ambiente de teste"
+      - "Mapear impacto de cada acao de tunning nos workflows ativos"
+      - "Definir checklist de validacao pos-tunning por feature"
+      - "Validar comportamento de workflows nos ambientes wfdb01 e wf001"
     decision_criteria:
       - "Zero perda de execucoes e credenciais"
       - "Sem regressao funcional nos fluxos criticos"
@@ -165,12 +217,12 @@ profiles:
     skill_level: "expert"
     description: "Expert em Python, Ansible e SDD (Specification-Driven Development)."
     focus:
-      - "Automacao idempotente de atualizacao"
+      - "Automacao idempotente das acoes de tunning (F16–F25)"
       - "Padronizacao de scripts e playbooks"
       - "Implementacao orientada por especificacao (SDD)"
       - "Coleta de evidencias tecnicas e logs de execucao"
     responsibilities:
-      - "Especificar automacoes de pre-check, upgrade e pos-check"
+      - "Especificar automacoes de pre-check, tunning e pos-check por feature"
       - "Padronizar variaveis de ambiente e parametros de execucao"
       - "Garantir rastreabilidade entre especificacao e execucao"
       - "Garantir reprodutibilidade do processo em multiplos ambientes"
@@ -202,7 +254,8 @@ profiles:
     description: "Gestor de projetos com foco em governanca, planejamento e entrega
       incremental."
     focus:
-      - "Planejamento de marcos e cronograma do upgrade"
+      - "Planejamento de marcos e cronograma do tunning"
+      - "Sequenciamento e controle de features por fase (P1/P2/P3)"
       - "Gestao de riscos, comunicacao e alinhamento entre perfis"
       - "Acompanhamento de progresso por criterios de aceite"
     responsibilities:
@@ -216,16 +269,19 @@ profiles:
   - role: "test_engineer"
     skill_level: "expert"
     description: "Engenheiro de testes para validacao funcional, regressao e
-      desempenho da atualizacao."
+      desempenho das acoes de tunning."
     focus:
-      - "Estrategia de testes pre e pos-upgrade"
-      - "Validacao de compatibilidade e regressao a cada versao intermediaria"
-      - "Cobertura de cenarios criticos e regressao"
-      - "Metricas de desempenho e estabilidade"
+      - "Estrategia de testes pre e pos-tunning para cada feature (F16–F25)"
+      - "Validacao de metricas antes e depois de cada acao: latencia,
+        throughput, fila e PostgreSQL execution_entity"
+      - "Cobertura de cenarios criticos: 121Labs PABX e WhatsApp Gateway"
+      - "Metricas de desempenho coletadas via VictoriaMetrics"
     responsibilities:
-      - "Definir matriz de testes por risco e criticidade"
-      - "Executar validacoes funcionais e de compatibilidade"
-      - "Consolidar evidencias de teste para aprovacao de release"
+      - "Definir matriz de testes por risco e criticidade por feature"
+      - "Executar validacoes funcionais e de observabilidade em wfdb01 antes de
+        promover para wf001"
+      - "Consolidar evidencias metricas antes/depois para aprovacao de cada acao
+        de tunning"
     decision_criteria:
       - "Sem regressoes criticas em workflows prioritarios"
       - "Desempenho e estabilidade dentro de limites aceitaveis"
@@ -372,31 +428,38 @@ features_implemented:
       - "Padrao de nomenclatura de versao e consistente"
 
   - id: "F13"
-    name: "Backup e recuperacao de codigos com falha na execucao"
+    name: "Backup e recuperacao para operacoes de tunning"
     status: "implemented"
     scope:
-      - "Reduz risco operacional em mudancas no container N8N e banco PostgreSQL"
-      - "Snapshot de volumes Docker e dump do banco antes de cada upgrade de
-        versao"
-      - "Apoia recuperacao rapida apos falha em etapa intermediaria do upgrade"
+      - "Reduz risco operacional em mudancas de configuracao no N8N, PostgreSQL
+        e stack Prometheus/VictoriaMetrics"
+      - "Dump do banco PostgreSQL antes de qualquer purgacao da execution_entity
+        ou alteracao de schema"
+      - "Snapshot de volumes Docker antes de alteracoes em variaveis de ambiente
+        ou recriacao de containers"
+      - "Apoia recuperacao rapida apos falha em operacoes de tunning executadas
+        em wfdb01 ou wf001"
     acceptance_criteria:
-      - "Processo de restore definido, documentado e testavel em ambiente de
-        teste (wfdb01)"
-      - "Backup validado antes de qualquer promocao de versao"
+      - "Processo de restore definido, documentado e testavel em wfdb01 antes de
+        qualquer operacao em wf001"
+      - "Backup validado antes de cada operacao destrutiva (purgacao, ALTER
+        TABLE, recriacao de container)"
 
   - id: "F14"
-    name: "Rastreamento completo de mudancas e rollback automatico"
+    name: "Rastreamento de mudancas de configuracao e rollback de tunning"
     status: "implemented"
     scope:
-      - "Garante auditabilidade fim a fim do processo de upgrade N8N (versao,
-        data, responsavel)"
-      - "Rastreia cada versao intermediaria aplicada no caminho 2.6.4 -> latest"
-      - "Suporta reversao com baixa indisponibilidade via re-tag de imagem
-        Docker"
+      - "Auditabilidade fim a fim de cada acao de tunning (configuracao
+        alterada, data, responsavel, evidencia de antes/depois)"
+      - "Rastreia mudancas em variaveis de ambiente N8N, parametros PostgreSQL e
+        configuracao Prometheus/VictoriaMetrics"
+      - "Suporta reversao de configuracao com baixa indisponibilidade via
+        re-aplicacao do estado anterior documentado"
     acceptance_criteria:
-      - "Cada versao aplicada registra: imagem, hash, variaveis de ambiente e
-        evidencias de teste"
-      - "Rollback a versao anterior possivel em menos de 5 minutos"
+      - "Cada mudanca registra: parametro, valor anterior, valor novo e
+        evidencias metricas de antes/depois"
+      - "Rollback de configuracao possivel em menos de 5 minutos para qualquer
+        acao de tunning"
 
   - id: "F15"
     name: "Analise de desempenho N8N — Relatorio ANA-001"
@@ -453,20 +516,27 @@ features_implemented:
       - "Contagens de execucoes N8N coerentes entre dashboards e alertas"
 
   - id: "F19"
-    name: "Automacao de upgrade incremental do N8N (v2.6.4 -> latest)"
+    name: "Governanca de throughput e rate-limiting para workflows de alto volume"
     status: "not-started"
     scope:
-      - "Playbooks Ansible idempotentes para upgrade versao a versao sem pular
-        intermediarias"
-      - "Pre-checks (backup, health, rollback gate) e pos-checks (validacao
-        funcional, metricas)"
-      - "Resolucao de versao latest via tags oficiais Docker Hub do N8N como
-        fonte primaria"
+      - "Auditar hub-whatsapp-api-gateway-evolution-api (84K exec em 27 dias
+        desde 04/mar) — verificar se o volume e proporcional a base de clientes
+        ativos da integracao Evolution API (WhatsApp)"
+      - "Verificar e documentar configuracao de rate-limiting na integracao N8N
+        x Evolution API para o workflow WhatsApp Gateway"
+      - "Auditar 121Labs PABX call-analytics (429K exec, 57% do total, pico de
+        8.416 exec/hora) — avaliar se trigger por evento individual vs. batch e
+        a principal causa do volume"
+      - "Documentar politica de throughput recomendada por workflow e cliente
+        para orientar decisoes de escalonamento e isolamento"
     acceptance_criteria:
-      - "Cada versao intermediaria aplicada com sucesso antes de avancar para a
-        proxima"
-      - "Rollback automatizado ativado em caso de falha nos pos-checks"
-      - "Zero perda de execucoes, credenciais e workflows durante o upgrade"
+      - "Volume dos 2 workflows de alto volume documentado e justificado pela
+        base de clientes e configuracao atual da integracao"
+      - "Recomendacao de rate-limiting ou batching emitida com impacto estimado
+        (exec/hora antes x depois)"
+      - "F19 e analise e recomendacao interna (Vya) — aprovacao pelo
+        project-manager e suficiente para publicar a recomendacao e avancar para
+        F21/F25"
 
   - id: "F20"
     name: "Probe sintetico end-to-end de desempenho N8N"
@@ -481,31 +551,135 @@ features_implemented:
       - "Metrica de latencia end-to-end disponivel no VictoriaMetrics para wf001"
       - "Baseline de latencia documentado antes e apos cada acao de tunning"
 
+  - id: "F21"
+    name: "Avaliacao de batching para 121Labs PABX call-analytics"
+    status: "not-started"
+    scope:
+      - "Avaliar agrupamento de eventos PABX por janela de 1 minuto antes de
+        disparar o workflow N8N (ANA-001: potencial reducao de 60x no volume —
+        8.400 exec/hora -> ~140 exec/hora)"
+      - "Propor arquitetura de buffer (N8N Schedule Trigger ou middleware
+        externo) compativel com a integracao atual do cliente 121Labs"
+      - "Estimar impacto da reducao no PostgreSQL execution_entity e na fila de
+        execucao N8N"
+    acceptance_criteria:
+      - "Analise de viabilidade tecnica documentada com impacto estimado em
+        exec/hora e carga no PostgreSQL"
+      - "Proposta apresentada e aprovada pelo cliente 121Labs antes de qualquer
+        implementacao"
+
+  - id: "F22"
+    name: "Adicao de buckets sub-100ms ao histograma do N8N"
+    status: "not-started"
+    scope:
+      - "Adicionar buckets de resolucao fina ao
+        n8n_workflow_execution_duration_seconds: 0.005, 0.01, 0.025, 0.05"
+      - "Atualizar configuracao do prom-client no prod-collector-api ou no
+        container N8N via variavel de ambiente ou plugin"
+      - "Validar que os novos buckets aparecem no endpoint /metrics e sao
+        coletados pelo Prometheus e armazenados no VictoriaMetrics"
+    acceptance_criteria:
+      - "p50 e p95 sub-100ms mensuraveis por workflow apos a atualizacao"
+      - "Historico de latencia real disponivel no VictoriaMetrics para
+        comparacao antes x depois de cada acao de tunning (F17, F18, F20)"
+
+  - id: "F23"
+    name: "Correcao do monitoramento de memoria do servidor wf001"
+    status: "not-started"
+    scope:
+      - "Diagnosticar por que node_memory_* retorna vazio no scrape de wf001
+        (label instance incorreto identificado no ANA-001)"
+      - "Corrigir configuracao de relabeling do scrape config Prometheus para o
+        node_exporter de wf001"
+      - "Validar que metricas de memoria RAM e swap aparecem no VictoriaMetrics
+        para instance=wf001"
+    acceptance_criteria:
+      - "node_memory_MemAvailable_bytes{instance='wf001'} retorna valores
+        validos no Prometheus/VictoriaMetrics"
+      - "Dashboard de memoria de wf001 funcional — complementa dados de CPU ja
+        disponiveis (baseline ANA-001: 1-3% CPU em condicao normal)"
+
+  - id: "F24"
+    name: "Habilitacao de metricas de concorrencia do N8N"
+    status: "not-started"
+    scope:
+      - "Ativar e validar n8n_concurrency_* no endpoint /metrics do container
+        N8N (versao 2.6.4 em wf001 — ja atende requisito >= 0.214; sem
+        pre-requisito de troca de versao)"
+      - "Monitorar execucoes simultaneas ativas vs. limite de concorrencia
+        configurado no N8N"
+      - "Criar alerta Prometheus para concorrencia proxima do limite (threshold
+        recomendado: 80% do max configurado)"
+    acceptance_criteria:
+      - "n8n_concurrency_current e n8n_concurrency_limit visiveis no
+        VictoriaMetrics para wf001"
+      - "Hipotese de workers saturados (causa da lentidao percebida no ANA-001)
+        confirmada ou descartada com dados reais"
+
+  - id: "F25"
+    name: "Avaliacao de isolamento de workload para workflows de alto volume"
+    status: "not-started"
+    scope:
+      - "Avaliar viabilidade tecnica de instancia N8N dedicada (wf002 ou
+        container separado em wf001) para 121Labs PABX call-analytics (57% do
+        volume total — 429K exec/90d)"
+      - "Avaliar impacto no PostgreSQL compartilhado caso instancias separadas
+        usem o mesmo banco"
+      - "Documentar arquitetura proposta com estimativa de custo operacional e
+        ganhos de isolamento esperados"
+    acceptance_criteria:
+      - "Analise de viabilidade documentada: beneficios, riscos e custo
+        operacional estimado"
+      - "Decisao go/no-go registrada em SESSION_REPORT com justificativa e
+        aprovacao do project-manager"
+
+execution_order:
+  source: "ANA-001 — prioridade por impacto operacional"
+  phases:
+    - phase: "P1"
+      label: "Instrumentacao e correcao critica"
+      note: "Features independentes entre si — podem ser executadas em paralelo em
+        wfdb01 antes de promover em bloco para wf001"
+      features: [ "F16", "F17", "F18" ]
+    - phase: "P2"
+      label: "Observabilidade complementar"
+      note: "Depende de P1 estar estavel em wf001; F20 requer F16 ativo para medir
+        latencia de fila no probe end-to-end"
+      features: [ "F23", "F20", "F22", "F24" ]
+    - phase: "P3"
+      label: "Analise e governanca de workload"
+      note: "Depende de dados coletados pelas fases P1 e P2; F21 e F25 requerem
+        aprovacao do project-manager e validacao com cliente 121Labs antes de
+        qualquer implementacao"
+      features: [ "F19", "F21", "F25" ]
+
 mcp_questions:
   discovery:
     - id: "Q01"
       question: "Qual versao exata do n8n esta em execucao no ambiente
         wf001.vya.digital (31.220.103.208)?"
-      rationale: "Confirmar baseline antes do upgrade — default documentado: 2.6.4"
+      rationale: "Confirmar baseline de tunning — versao 2.6.4 documentada; confirmar
+        se N8N >= 0.214 para habilitar F24 (metricas de concorrencia)"
       expected_answer_type: "string"
       default: "2.6.4"
-      feature_ref: "F19"
+      feature_ref: "F16"
 
     - id: "Q02"
-      question: "Qual estrategia de update de container sera adotada (in-place,
-        blue-green, canary) mantendo upgrade versao a versao?"
-      rationale: "Definir risco, plano de rollback e trilha de versoes intermediarias"
-      expected_answer_type: "enum"
-      options: [ "in-place", "blue-green", "canary" ]
+      question: "Qual e a estrategia de rate-limiting ou batching atualmente adotada
+        para os workflows de alto volume (121Labs PABX, WhatsApp Gateway)?"
+      rationale: "Base para F19 — documentar estado atual antes de emitir recomendacao
+        de governanca de throughput"
+      expected_answer_type: "text"
       feature_ref: "F19"
 
     - id: "Q03"
-      question: "Quais workflows sao criticos para validacao obrigatoria pos-upgrade?
+      question: "Quais workflows sao criticos para validacao obrigatoria pos-tunning?
         (referencia: 121Labs PABX, hub-whatsapp-api-gateway-evolution-api)"
       rationale: "Definir cobertura minima de testes — ANA-001 identificou os
-        workflows de maior volume"
+        workflows de maior volume; qualquer acao de tunning deve validar esses
+        fluxos antes de promover para wf001"
       expected_answer_type: "list"
-      feature_ref: "F19"
+      feature_ref: "F20"
 
   performance:
     - id: "Q04"
@@ -540,66 +714,69 @@ mcp_questions:
       feature_ref: "F18"
 
     - id: "Q08"
-      question: "Quais limites de desempenho sao aceitaveis pos-upgrade? (ex: p95 <
+      question: "Quais limites de desempenho sao aceitaveis pos-tunning? (ex: p95 <
         100ms, fila < 50 itens, CPU < 30%)"
       rationale: "Estabelecer criterio objetivo de aceite para os gates de promocao
-        entre versoes"
+        entre wfdb01 e wf001 por feature"
       expected_answer_type: "map"
-      feature_ref: "F19"
+      feature_ref: "F20"
 
   compatibility:
     - id: "Q09"
-      question: "Quais dependencias externas devem ser validadas (PostgreSQL, Redis,
-        webhooks, credenciais OAuth)?"
-      rationale: "Evitar regressao de integracao — conexoes e credenciais sao frageis
-        entre versoes do N8N"
+      question: "Quais dependencias externas devem ser validadas para cada acao de
+        tunning (PostgreSQL, Redis, webhooks, credenciais OAuth)?"
+      rationale: "Evitar regressao de integracao — acoes de tunning em variaveis de
+        ambiente ou recriacao de containers podem afetar conexoes ativas"
       expected_answer_type: "list"
-      feature_ref: "F19"
+      feature_ref: "F17"
 
     - id: "Q10"
-      question: "Existe mudanca de variaveis de ambiente entre a versao atual (2.6.4)
-        e a alvo?"
-      rationale: "Prevenir falha de startup por variaveis descontinuadas ou novas
-        obrigatorias"
-      expected_answer_type: "boolean"
-      feature_ref: "F19"
+      question: "Quais variaveis de ambiente N8N serao alteradas pelas acoes de
+        tunning (F16: QUEUE_METRICS, F17: EXECUTIONS_DATA_PRUNE, F18:
+        PUSHGATEWAY_ENABLED, F24: CONCURRENCY)?"
+      rationale: "Prevenir falha de configuracao — mapear todas as variaveis
+        modificadas por feature antes de aplicar em wf001"
+      expected_answer_type: "map"
+      feature_ref: "F16"
 
     - id: "Q11"
       question: "O Traefik esta configurado para rotear trafego do N8N em wf001?
-        Labels e middlewares estao corretos?"
-      rationale: "Todos os servidores usam Traefik como proxy — re-criacao do
-        container pode perder labels"
+        Labels e middlewares serao preservados apos acoes de tunning?"
+      rationale: "Todos os servidores usam Traefik como proxy — recriacao do container
+        pode perder labels de roteamento"
       expected_answer_type: "boolean"
-      feature_ref: "F19"
+      feature_ref: "F17"
 
   operations:
     - id: "Q12"
-      question: "Qual janela de manutencao aprovada para execucao do upgrade em wf001?"
-      rationale: "Alinhar operacao com disponibilidade do servico — ambiente de producao"
+      question: "Qual janela de manutencao aprovada para execucao das acoes de tunning
+        em wf001 (especialmente F17 purgacao PostgreSQL e F18 dupla coleta)?"
+      rationale: "Alinhar operacao com disponibilidade do servico — ambiente de
+        producao exige coordenacao antes de qualquer mudanca"
       expected_answer_type: "string"
-      feature_ref: "F19"
+      feature_ref: "F17"
 
     - id: "Q13"
-      question: "Qual procedimento de backup sera usado antes de cada versao
-        intermediaria? (dump PG + snapshot volume Docker)"
-      rationale: "Garantir recuperacao em caso de falha — cada versao intermediaria
-        precisa de backup proprio"
+      question: "Qual procedimento de backup sera usado antes de cada operacao
+        destrutiva? (dump PG + snapshot volume Docker)"
+      rationale: "Garantir recuperacao em caso de falha — cada purgacao ou recriacao
+        de container precisa de backup proprio validado"
       expected_answer_type: "text"
       feature_ref: "F13"
 
     - id: "Q14"
       question: "Quais evidencias devem ser coletadas para aprovar promocao de cada
-        versao intermediaria?"
+        acao de tunning de wfdb01 para wf001?"
       rationale: "Padronizar auditoria — ANA-001 define metricas de referencia como
-        criterio de aceite"
+        criterio de aceite; cada feature deve ter evidencias de antes/depois"
       expected_answer_type: "list"
       feature_ref: "F14"
 
     - id: "Q15"
-      question: "O probe sintetico end-to-end (F20) sera implementado antes ou apos o
-        primeiro upgrade de versao?"
-      rationale: "Definir baseline de latencia pre-upgrade e comparar pos-upgrade para
-        validar melhora ou regressao"
+      question: "O probe sintetico end-to-end (F20) sera implementado antes ou apos as
+        primeiras acoes de tunning (F16/F17/F18)?"
+      rationale: "Definir baseline de latencia pre-tunning e comparar pos-tunning para
+        validar melhora ou regressao com dados objetivos"
       expected_answer_type: "enum"
       options: [ "antes", "apos", "simultaneamente" ]
       feature_ref: "F20"
@@ -622,36 +799,36 @@ mcp_questions:
     - id: "Q18"
       question: "Quais riscos bloqueadores impedem promover para producao? (ex: falha
         no pos-check, perda de dado, workflow critico com erro)"
-      rationale: "Definir criterios de no-go para cada versao intermediaria do upgrade"
+      rationale: "Definir criterios de no-go para cada acao de tunning antes de
+        promover de wfdb01 para wf001"
       expected_answer_type: "list"
-      feature_ref: "F19"
+      feature_ref: "F14"
 
 rules:
   - "Seguir o fluxo de trabalho do framework Speckit"
-  - "Criar fluxo de atualizacao de container do n8n evitando erros de
-    compatibilidade e desempenho"
-  - "Atualizacao do n8n deve ocorrer versao a versao desde 2.6.4 ate latest, sem
-    pular versoes"
-  - "A resolucao da versao latest deve usar tags oficiais Docker Hub do N8N como
-    fonte primaria"
+  - "Escopo restrito a tunning e instrumentacao (F16–F25) — upgrade de versao
+    N8N e fora do escopo deste projeto (clarificado em 2026-04-02)"
+  - "Sequencia de features: P1 (F16/F17/F18) -> P2 (F23/F20/F22/F24) -> P3
+    (F19/F21/F25) conforme ANA-001"
   - "Fluxo de trabalho deve ser guiado por prompts para GitHub Copilot"
   - "Configuracao MCP deve ser gerada automaticamente baseada nas especificacoes"
   - "Sistema de versionamento e historico deve rastrear todas as mudancas"
   - "N8N em producao roda em wf001.vya.digital (31.220.103.208) — alteracoes
-    exigem janela de manutencao"
+    exigem janela de manutencao e backup validado"
   - "Ambiente de teste do N8N publicado em wfdb01.vya.digital (86.48.31.149),
     pasta /opt/docker_user/n8n"
   - "Todos os servidores Docker utilizam Traefik como proxy reverso — labels
     devem ser preservados"
   - "Atencao a configuracao de conexao SSH SPA contidos em .secrets/ssh.json"
   - "Credenciais e tokens nunca devem ser embutidos em artefatos versionados"
+  - "Toda operacao em wf001 requer evidencias metricas de antes/depois
+    documentadas no SESSION_REPORT correspondente"
 
 output_contract:
   expected_outputs:
     - "Documentacao em Markdown com historico de acoes e debates de sessao
       (docs/SESSIONS/)"
-    - "Playbooks Ansible idempotentes para upgrade incremental versao a versao
-      do N8N"
+    - "Playbooks Ansible idempotentes para instrumentacao e tunning (F16–F25)"
     - "Scripts Python para pre-check, pos-check, backup e probe sintetico
       end-to-end"
     - "Artefatos de configuracao: variaveis de ambiente N8N, Traefik labels,
@@ -664,13 +841,31 @@ output_contract:
     - "Documentacao incremental e cronologica por sessao"
     - "Rastreabilidade ponta a ponta: feature_id -> tarefa -> execucao ->
       evidencia"
-    - "Rollback testavel a cada versao intermediaria do upgrade"
+    - "Rollback testavel para cada acao de tunning antes de promover para wf001"
     - "Validacao funcional e nao funcional com baseline ANA-001 como referencia"
     - "Zero exposicao de credenciais em artefatos versionados"
     - "Execucao nao interativa e auditavel (logs estruturados)"
   project_memory:
-    baseline_report: \"docs/n8n_perf_ANA001_20260101_20260331_20260331T154646.md\"
-    spec_source: \"docs/objetivo.yaml\"
-    mcp_config: \"docs/mcp-questions.yaml\"
-    sessions_dir: \"docs/SESSIONS/\"
-    ssh_secrets: \".secrets/ssh.json\"
+    baseline_report: "docs/n8n_perf_ANA001_20260101_20260331_20260331T154646.md"
+    spec_source: "docs/objetivo.yaml"
+    mcp_config: "docs/mcp-questions.yaml"
+    sessions_dir: "docs/SESSIONS/"
+    ssh_secrets: ".secrets/ssh.json"
+
+clarifications:
+  - q: "specification.rules tinha regras de upgrade de versao N8N, fora do escopo do
+      projeto. Como alinhar ao escopo de tunning?"
+    a: "Substituir por: (1) operacoes em wf001 exigem janela de manutencao + backup
+      validado; (2) toda mudanca exige evidencias metricas antes/depois no
+      SESSION_REPORT; (3) alteracoes em workflows de clientes requerem aprovacao
+      do project-manager."
+  - q: "Qual e a sequencia de execucao das features F16-F25?"
+    a: "P1 (paralelo) F16/F17/F18; P2 F23/F20/F22/F24; P3 F19/F21/F25 — conforme
+      prioridade de impacto operacional do ANA-001."
+  - q: "Qual e a versao atual do N8N em wf001? F24 requer >= 0.214."
+    a: "Versao 2.6.4 — ja atende o requisito de F24 (>= 0.214). Nenhuma troca de
+      versao necessaria para habilitar metricas de concorrencia."
+  - q: "F19 requer gate externo de aprovacao com clientes 121Labs e/ou Evolution API
+      antes de publicar recomendacoes?"
+    a: "Nao — F19 e analise e recomendacao interna (Vya). Aprovacao pelo
+      project-manager e suficiente. Sem gate externo com clientes."

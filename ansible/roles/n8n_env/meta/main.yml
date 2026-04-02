@@ -1,0 +1,15 @@
+---
+galaxy_info:
+  role_name: n8n_env
+  author: enterprise-python-n8n-tunning
+  description: >
+    Gerencia docker-compose.override.yml do N8N para habilitar métricas de fila
+    (F16) e purgação automática de execution_entity (F17).
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - "12"
+
+dependencies: []

@@ -1,0 +1,99 @@
+---
+# ansible/playbooks/f17-postgres-tuning.yml
+# PostgreSQL Tuning: Vetor A (EXECUTIONS_DATA_PRUNE) + Vetor B (pg_stat_statements) — F17
+# Execução padrão: ansible-playbook f17-postgres-tuning.yml -i ansible/inventory/ -l wfdb01
+#
+# Tags disponíveis:
+#   f17-backup    — pg_dump de wfdb02
+#   f17-prune     — ativa EXECUTIONS_DATA_PRUNE em wfdb01 (Vetor A)
+#   f17-setup-dev — prepara home011 com config equivalente ao wfdb02 (gate Vetor B)
+#   f17-pgstat    — ativa pg_stat_statements (Vetor B) — requer f17_pgstat_approved=true
+
+# --- Play 1: SPA Knock (obrigatório para acesso VPS) ---
+- name: SPA Knock — wfdb02 + wfdb01
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [ always ]
+  tasks:
+    - name: Knock SSH SPA — wfdb02
+      ansible.builtin.command:
+        cmd: fwknop --rc-file ~/.fwknoprc -n wfdb02
+      changed_when: true
+      check_mode: false
+
+    - name: Knock SSH SPA — wfdb01
+      ansible.builtin.command:
+        cmd: fwknop --rc-file ~/.fwknoprc -n wfdb01
+      changed_when: true
+      check_mode: false
+
+    - name: Pausa pós-knock
+      ansible.builtin.pause:
+        seconds: 3
+
+    - name: Wait for SSH 5010 — wfdb02
+      ansible.builtin.wait_for:
+        host: 82.197.64.145
+        port: 5010
+        timeout: 30
+      check_mode: false
+
+    - name: Wait for SSH 5010 — wfdb01
+      ansible.builtin.wait_for:
+        host: 86.48.31.149
+        port: 5010
+        timeout: 30
+      check_mode: false
+
+# --- Play 2: Backup pg_dump (wfdb02) ---
+- name: F17 — Backup pg_dump n8n_db (wfdb02)
+  hosts: wfdb02
+  become: false
+  gather_facts: true
+  tags: [ f17, f17-backup ]
+  tasks:
+    - ansible.builtin.import_role:
+        name: postgres_tuning
+        tasks_from: f17_backup.yml
+
+# --- Play 3: Vetor A — Ativar EXECUTIONS_DATA_PRUNE (wfdb01) ---
+- name: "F17 — Vetor A: EXECUTIONS_DATA_PRUNE (wfdb01)"
+  hosts: wfdb01
+  become: false
+  gather_facts: true
+  tags: [ f17, f17-prune ]
+  vars:
+    n8n_f16_enabled: true # preserva F16 metrics (já activo desde T017)
+    n8n_f17_enabled: true
+  tasks:
+    - ansible.builtin.import_role:
+        name: postgres_tuning
+        tasks_from: f17_prune.yml
+
+# --- Play 4: Setup dev em home011 (gate obrigatório para Vetor B) ---
+- name: F17 — Setup home011 para validação Vetor B
+  hosts: home011
+  become: false
+  gather_facts: true
+  tags: [ f17, f17-setup-dev ]
+  tasks:
+    - ansible.builtin.import_role:
+        name: postgres_tuning
+        tasks_from: f17_setup_dev.yml
+
+# --- Play 5: Vetor B — pg_stat_statements (wfdb02) ---
+# ⚠️ BLOQUEADO por padrão. Requer: -e f17_pgstat_approved=true
+# Deve ser executado APENAS após home011 gate validado e aprovação do test_engineer
+- name: "F17 — Vetor B: pg_stat_statements (wfdb02)"
+  hosts: wfdb02
+  become: false
+  gather_facts: true
+  tags: [ f17, f17-pgstat ]
+  vars:
+    f17_pgstat_approved: false
+  tasks:
+    - ansible.builtin.import_role:
+        name: postgres_tuning
+        tasks_from: f17_pgstat.yml
+      when: f17_pgstat_approved | bool

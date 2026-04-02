@@ -48,7 +48,7 @@ applyTo: "**"
 | Editar arquivo existente | `replace_string_in_file` (mín. 3 linhas de contexto) |
 | Múltiplas edições | `multi_replace_string_in_file` |
 
-❌ **PROIBIDO**: `cat > heredoc`, `echo >> arquivo`, `echo | tee arquivo`
+❌ **PROIBIDO**: `cat > heredoc`, `echo >> arquivo`, `echo | tee arquivo`, qualquer variação de `cat <<EOF`
 
 ---
 
@@ -64,36 +64,48 @@ applyTo: "**"
 | Verificar erros | `get_errors` |
 
 ❌ **PROIBIDO via terminal**: `cat`, `grep`, `find`, `ls`
-✅ **`run_in_terminal` apenas para**: `git`, `make`, `pytest`, `pip install`, `docker`, `systemctl`
+✅ **`run_in_terminal` apenas para**: `git`, `make`, `pytest`, `pip install`, `docker`, `systemctl`, `ansible-playbook`, `ssh`, `curl`, `nc`
 
 ---
 
 ### 3. Mover/copiar/excluir arquivos — SEMPRE Python stdlib
+
+**1–2 arquivos:** `run_in_terminal mv` é aceitável.
+**3+ arquivos:** OBRIGATÓRIO Python + JSON (nunca `mv` repetido ou loop shell):
 
 ```python
 import shutil, logging
 from pathlib import Path
 
 log = logging.getLogger(__name__)
-src, dst = Path("origem/arq.md"), Path("destino/arq.md")
-dst.parent.mkdir(parents=True, exist_ok=True)
-if src.exists():
-    shutil.move(str(src), str(dst))
-    log.info("✅ %s → %s", src, dst)
+root = Path("/home/yves_marinho/Documentos/DevOps/Vya-Jobs/enterprise-python-n8n-tunning")
+ops = [
+    {"name": "arquivo.md", "from": "origem/", "to": "destino/"},
+]
+for op in ops:
+    src = root / op["from"] / op["name"]
+    dst = root / op["to"]  / op["name"]
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    if src.exists():
+        shutil.move(str(src), str(dst))
+        log.info("✅ %s → %s", op["from"], op["to"])
 ```
 
-❌ **PROIBIDO**: `mv`, `cp`, `rm`, `mkdir` via terminal
+❌ **PROIBIDO**: `mv`, `cp`, `rm`, `mkdir` em série via terminal para lotes
 
 ---
 
 ### 4. Git commits — SEMPRE via arquivo de mensagem
 
 ```bash
-echo "feat(escopo): descrição" > /tmp/commit.txt
+# Criar mensagem com create_file, depois:
 ./scripts/git-commit-with-file.sh /tmp/commit.txt
 ```
 
 ❌ **PROIBIDO**: `git commit -m "..."` direto
+❌ **PROIBIDO**: heredoc ou textos ≥ 6 linhas no terminal
+
+**Regra de tamanho:** ≤ 5 linhas → `echo "msg" > /tmp/commit.txt` OK | ≥ 6 linhas → `create_file` + script
 
 ---
 
@@ -108,8 +120,24 @@ echo "feat(escopo): descrição" > /tmp/commit.txt
 | Docs técnicos | `docs/` |
 | Python source | `src/` |
 | Scripts | `scripts/` |
+| Scripts temporários | `scripts/tmp/` (gitignored) — **NUNCA `/tmp/` do sistema** |
+| Especificações Speckit | `specs/` |
+| Playbooks Ansible | `ansible/` |
 
 ❌ **NUNCA** arquivos de sessão/doc na raiz
+❌ **NUNCA** criar arquivos em `.specify/` (exclusivo SpecKit)
+
+### 5c. Limpeza de `tmp/` no end-session
+
+`tmp/` deve ser **esvaziada ao final de cada sessão** como parte da rotina `session-end.prompt.md`:
+
+```bash
+# Durante o ritual de encerramento:
+rm -f tmp/*          # apaga conteúdo
+git checkout -- tmp/ # restaura .gitkeep se necessário
+```
+
+❌ **NUNCA** commitar conteúdo de `tmp/` — apenas o `.gitkeep`
 
 ---
 
@@ -162,11 +190,77 @@ Correto: [alternativa válida]
 ```
 
 *Gerado por scaffold.py em 2026-04-01T13:38:39Z — Projeto: enterprise-python-n8n-tunning*
+*Atualizado em 2026-04-02 — SSH SPA, Ansible SPA pattern, N8N Tunning rules, feature sequence F16–F25*
+
+## 🔑 SSH SPA — Acesso aos Servidores
+
+**Todos os servidores VPS utilizam SSH SPA (fwknop) — porta SSH 5010, porta knock UDP 62201.**
+
+| Servidor | IP | Função |
+|----------|----|--------|
+| wf001.vya.digital | 31.220.103.208 | N8N produção |
+| wf008.vya.digital | 31.220.103.208 | Journey System |
+| wfdb01.vya.digital | 86.48.31.149 | Observability + N8N teste |
+| wfdb02.vya.digital | 82.197.64.145 | PostgreSQL/MySQL produção |
+
+```bash
+make ssh-spa-knock-one HOST=wfdb01     # knock manual antes de SSH
+~/.local/bin/ssh-wfdb01 'docker ps'   # wfdb01: knock automático
+```
+
+**Janela de acesso**: 30s | **fwknop**: usar `$IP`/`$SRC` — NUNCA `%IP%`/`%SRC%`
+**UFW**: `ufw insert 1 allow from $IP to any port 5010` (primeiro match ganha)
+
+---
+
+## 🏗️ Ansible — Padrão com SPA
+
+Todo playbook que acessa VPS deve ter Play 1 para knock SPA:
+
+```yaml
+- name: SPA Knock
+  hosts: localhost
+  connection: local
+  tasks:
+    - command: fwknop --rc-file ~/.fwknoprc -n {{ inventory_hostname }}
+    - pause: {seconds: 3}
+    - wait_for: {host: "{{ ansible_host }}", port: 5010, timeout: 30}
+
+- name: Deploy
+  hosts: <host>
+  become: false
+  tasks:
+    - command: docker compose up -d n8n
+      args: {chdir: /opt/docker_user/n8n}
+      become: true
+      become_user: docker_user
+```
+
+**Paths VPS**: N8N em `/opt/docker_user/n8n` (wf001 e wfdb01)
+
+---
+
+## 📊 Regras de Projeto — Tunning N8N
+
+- **P0**: Operações em `wf001` → janela de manutenção + backup validado obrigatórios
+- **P0**: Toda mudança em `wf001` → evidências métricas antes/depois no `SESSION_REPORT`
+- **P0**: Alterações em workflows de clientes (121Labs PABX, WhatsApp Gateway) → aprovação do `project-manager`
+
+### Sequência de features (ANA-001)
+
+| Fase | Features | Observação |
+|------|----------|------------|
+| P1 | F16, F17, F18 | Paralelas em wfdb01 → promover em bloco para wf001 |
+| P2 | F23, F20, F22, F24 | Depende de P1 estável em wf001 |
+| P3 | F19, F21, F25 | Depende de P1+P2; F21/F25 requer cliente 121Labs |
+
+---
 
 ## Recent Changes
+- 001-001-tunning-instrumentacao: Added Python 3.11 (uv, Fabric pattern, reStructuredText docstrings, Doctest) + Ansible 2.15+, ansible-lint, Fabric/Paramiko, psycopg2-binary, prometheus-client
 - 001-p1-tunning-instrumentacao: Added Python 3.11+ (reStructuredText docstrings, Doctest, Fabric pattern) + Ansible 2.15+, ansible-lint, Fabric/Paramiko, psycopg2, prometheus-client
 - 001-p1-tunning-instrumentacao: Added [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
 
 ## Active Technologies
-- Python 3.11+ (reStructuredText docstrings, Doctest, Fabric pattern) + Ansible 2.15+, ansible-lint, Fabric/Paramiko, psycopg2, prometheus-client (001-p1-tunning-instrumentacao)
-- PostgreSQL (N8N backend — `execution_entity` 429K+ rows), VictoriaMetrics (métricas) (001-p1-tunning-instrumentacao)
+- Python 3.11 (uv, Fabric pattern, reStructuredText docstrings, Doctest) + Ansible 2.15+, ansible-lint, Fabric/Paramiko, psycopg2-binary, prometheus-client (001-001-tunning-instrumentacao)
+- PostgreSQL 16 (wfdb02 — 82.197.64.145:6432; Pgbouncer pooler :5432); N8N Docker volumes em `/opt/docker_user/n8n` (001-001-tunning-instrumentacao)

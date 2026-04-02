@@ -1,0 +1,21 @@
+{# ansible/roles/n8n_env/templates/docker-compose.override.j2 #}
+{# Template do docker-compose.override.yml para ativar F16 e F17 no N8N #}
+---
+services:
+{% for service in n8n_services | default(['n8n']) %}
+  {{ service }}:
+    environment:
+{% if n8n_f16_enabled | bool %}
+      # --- F16: Métricas de fila ---
+      - N8N_METRICS=true
+      - N8N_METRICS_INCLUDE_QUEUE_METRICS={{ n8n_metrics_include_queue_metrics | default('true') }}
+      - N8N_METRICS_ENDPOINT={{ n8n_metrics_endpoint | default('/metrics') }}
+      - QUEUE_HEALTH_CHECK_ACTIVE={{ n8n_queue_health_check_active | default('true') }}
+{% endif %}
+{% if n8n_f17_enabled | bool %}
+      # --- F17: Purgação automática execution_entity ---
+      - EXECUTIONS_DATA_PRUNE={{ n8n_executions_data_prune | default('true') }}
+      - EXECUTIONS_DATA_PRUNE_MAX_AGE={{ n8n_prune_max_age_hours | default(720) }}
+      - EXECUTIONS_DATA_PRUNE_TIMEOUT={{ n8n_prune_timeout_ms | default(3600000) }}
+{% endif %}
+{% endfor %}

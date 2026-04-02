@@ -1,0 +1,20 @@
+---
+# ansible/roles/postgres_tuning/tasks/main.yml
+# Entry point do role postgres_tuning — delega para sub-tasks por tag
+# import_tasks (estático) garante filtragem correta de tags em check mode
+
+- name: F17 backup tasks
+  ansible.builtin.import_tasks: f17_backup.yml
+  tags: [ f17, f17-backup ]
+
+- name: F17 prune env tasks
+  ansible.builtin.import_tasks: f17_prune.yml
+  tags: [ f17, f17-prune ]
+
+- name: F17 setup dev tasks (home011)
+  ansible.builtin.import_tasks: f17_setup_dev.yml
+  tags: [ f17, f17-setup-dev ]
+
+- name: F17 pg_stat_statements tasks
+  ansible.builtin.import_tasks: f17_pgstat.yml
+  tags: [ f17, f17-pgstat ]

@@ -1,0 +1,57 @@
+---
+# ansible/roles/prometheus_config/tasks/f18_audit.yml
+# Auditoria somente leitura de dupla coleta — F18
+# ⚠️ NENHUMA MODIFICAÇÃO ao prod-collector-api. Apenas inspecionar e registrar.
+# IDEMPOTENTE: apenas leitura — re-execução sempre changed=0
+
+- name: F18 | Audit — Inspecionar container prod-collector-api
+  ansible.builtin.command:
+    cmd: docker inspect prod-collector-api
+  register: inspect_result
+  changed_when: false
+  failed_when: inspect_result.rc not in [0, 1]
+  tags: [f18, f18-audit]
+
+- name: F18 | Audit — Registrar resultado da inspeção (container encontrado?)
+  ansible.builtin.set_fact:
+    f18_container_found: "{{ inspect_result.rc == 0 }}"
+    f18_inspect_raw: "{{ inspect_result.stdout | from_json if inspect_result.rc == 0 else [] }}"
+  tags: [f18, f18-audit]
+
+- name: F18 | Audit — Extrair variáveis de ambiente Pushgateway-related
+  ansible.builtin.set_fact:
+    f18_env_vars: >-
+      {{
+        f18_inspect_raw[0].Config.Env
+        | default([])
+        | select('match', '.*[Pp]ush[Gg]ateway.*|.*PUSHGATEWAY.*|.*PUSH_URL.*')
+        | list
+      }}
+  when: f18_container_found | bool
+  tags: [f18, f18-audit]
+
+- name: F18 | Audit — Copiar JSON de inspeção para o controlador local
+  ansible.builtin.copy:
+    content: "{{ f18_inspect_raw | to_nice_json }}"
+    dest: "/tmp/f18-inspect-{{ inventory_hostname }}-{{ ansible_date_time.date
+      }}.json"
+    mode: "0600"
+  delegate_to: localhost
+  when: f18_container_found | bool
+  changed_when: true
+  tags: [f18, f18-audit]
+
+- name: F18 | Audit — Exibir variáveis Pushgateway encontradas
+  ansible.builtin.debug:
+    msg: >
+      F18 Audit — host: {{ inventory_hostname }} container_found: {{
+      f18_container_found }} pushgateway_vars: {{ f18_env_vars | default([]) }}
+  tags: [f18, f18-audit]
+
+- name: F18 | Audit — Aviso se container não encontrado
+  ansible.builtin.debug:
+    msg: >
+      ⚠️ prod-collector-api NÃO encontrado em {{ inventory_hostname }}.
+      Verifique o nome correto do container com: docker ps -a
+  when: not f18_container_found | bool
+  tags: [f18, f18-audit]

@@ -1,0 +1,40 @@
+---
+# ansible/playbooks/f16-queue-metrics.yml
+# Habilita métricas de fila N8N (F16)
+# Execução: ansible-playbook ansible/playbooks/f16-queue-metrics.yml -i ansible/inventory/
+# Dry-run: adicionar --check --diff
+
+# --- Play 1: SPA Knock (obrigatório para acesso SSH nos VPS) ---
+- name: SPA Knock — wfdb01
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [ always ]
+  tasks:
+    - name: Knock SSH SPA via fwknop
+      ansible.builtin.command:
+        cmd: fwknop --rc-file ~/.fwknoprc -n wfdb01
+      changed_when: true
+      check_mode: false # knock deve executar mesmo em --check
+
+    - name: Wait after knock
+      ansible.builtin.pause:
+        seconds: 3
+
+    - name: Wait for SSH port 5010
+      ansible.builtin.wait_for:
+        host: 86.48.31.149
+        port: 5010
+        timeout: 30
+      check_mode: false # wait_for deve executar mesmo em --check
+
+# --- Play 2: F16 — Habilitar métricas de fila em wfdb01 ---
+- name: F16 — Queue Metrics (wfdb01)
+  hosts: wfdb01
+  become: false
+  gather_facts: true
+  tags: [ f16 ]
+  vars:
+    n8n_f16_enabled: true
+  roles:
+    - role: n8n_env

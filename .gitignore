@@ -52,3 +52,7 @@ Thumbs.db
 *.log
 logs/
 !scripts/logs/.gitkeep
+
+# Temporários do projeto
+tmp/
+!tmp/.gitkeep

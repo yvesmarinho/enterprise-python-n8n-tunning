@@ -1,31 +1,28 @@
 <!--
 ┌─────────────────────────────────────────────────────────────────────────┐
-│  SYNC IMPACT REPORT — v2.0.0 → v2.1.0                                  │
-│  Version change : MINOR — new infrastructure server (wfdb02) added      │
-│                  and Principle III expanded with wfdb02 pg_dump target  │
+│  SYNC IMPACT REPORT — v2.1.0 → v2.2.0                                  │
+│  Version change : MINOR — execution phase assignments corrected to      │
+│                  match objetivo.yaml (P2/P3 reorder); three new         │
+│                  infrastructure entries added (wf008, home011,          │
+│                  home016)                                               │
 │  Modified principles:                                                   │
-│    III. "Infrastructure Safety First" — added explicit rule that        │
-│         pg_dump for F17 MUST target wfdb02 (dedicated DB server),      │
-│         not wf001 (application server)                                │
+│    II. "Performance-Tuning Scope" — phase sequence corrected:          │
+│        P2 was (F19,F20,F21,F23,F24); now (F23,F20,F22,F24)            │
+│        P3 was (F22,F25); now (F19,F21,F25)                             │
+│        Source: ANA-001 execution_order in objetivo.yaml                 │
 │  Added sections:                                                        │
-│    Infrastructure table: wfdb02.vya.digital (82.197.64.145) row —      │
-│    PostgreSQL 16 (6432) + Pgbouncer (5432) + MySQL 8.4 (3306) +       │
-│    Node Exporter                                                       │
+│    Infrastructure table rows added:                                     │
+│      wf008.vya.digital (31.220.103.208) — Journey System (out of scope)│
+│      home011.localdomain (192.168.15.198) — Dev DB PostgreSQL 16        │
+│      home016.localdomain (192.168.15.117) — Dev Desktop Docker          │
+│  Infrastructure intro: "three Debian 12 servers" → "four Debian 12     │
+│    VPS + two local development machines"                                │
 │  Removed sections: none                                                 │
-│  Infrastructure intro: "two Debian 12 servers" → "three Debian 12      │
-│  servers"; table column "N8N Path" → "Docker Path"                     │
 │  Templates:                                                              │
-│    plan-template.md     ✅ updated — gate III wfdb02 precision added    │
+│    plan-template.md     ✅ compatible (gate sequencing unchanged)       │
 │    spec-template.md     ✅ compatible (no conflicts)                    │
 │    tasks-template.md    ✅ compatible (no conflicts)                    │
-│  Downstream artefacts updated (same session):                           │
-│    specs/001-p1-tunning-instrumentacao/spec.md    ✅                    │
-│    specs/001-p1-tunning-instrumentacao/plan.md    ✅                    │
-│    specs/001-p1-tunning-instrumentacao/data-model.md ✅                │
-│    specs/001-p1-tunning-instrumentacao/tasks.md   ✅ (T006b, T012,     │
-│                                        T022, T030, T031 updated)     │
-│    specs/001-p1-tunning-instrumentacao/contracts/  ✅                  │
-│    docs/mcp-questions.yaml                        ✅                  │
+│  Downstream artefacts updated: none required this cycle                 │
 │  Follow-up TODOs: none — no deferred placeholders                      │
 └─────────────────────────────────────────────────────────────────────────┘
 -->
@@ -68,7 +65,7 @@ sharing the same infrastructure benefit from the performance gain.
   container version MUST be rejected with: `OUT-OF-SCOPE: version upgrade
   belongs to enterprise-python-analysis project`.
 - Tuning actions are sequenced by ANA-001 priority: P1 (F16, F17, F18) before
-  P2 (F19, F20, F21, F23, F24) before P3 (F22, F25).
+  P2 (F23, F20, F22, F24) before P3 (F19, F21, F25).
 - Every tuning action MUST be validated first in wfdb01, then promoted to
   wf001 only after the wfdb01 gate passes (see Principle IV).
 - The ANA-001 report (`docs/n8n_perf_ANA001_20260101_20260331_*.md`) is the
@@ -169,14 +166,17 @@ embedded in versioned artefacts (code, YAML, Markdown, agent/prompt files).
 
 ## Infrastructure & Environment Constraints
 
-This project operates across **three** Debian 12 servers (Docker), all routed
-through **Traefik** as reverse proxy:
+This project operates across **four** Debian 12 VPS servers and **two** local
+development machines. All VPS servers use **Traefik** as reverse proxy:
 
 | Hostname | IP | Role | Docker Path |
 |---|---|---|---|
 | wf001.vya.digital | 31.220.103.208 | **Production** — N8N + prod-collector-api | `/opt/docker_user/n8n` |
-| wfdb01.vya.digital | 86.48.31.149 | **Test + Monitoring** — Prometheus, VictoriaMetrics, Pushgateway | `/opt/docker_user/n8n` |
+| wf008.vya.digital | 31.220.103.208 | **Production** — Journey System + prod-collector-api *(out of project scope)* | `/opt/docker_user` |
+| wfdb01.vya.digital | 86.48.31.149 | **Test + Monitoring** — Prometheus, VictoriaMetrics, Pushgateway, N8N test | `/opt/docker_user/n8n` |
 | wfdb02.vya.digital | 82.197.64.145 | **Database** — PostgreSQL 16 (6432) + Pgbouncer (5432) + MySQL 8.4 (3306) + Node Exporter | `/opt/docker_user` |
+| home011.localdomain | 192.168.15.198 | **Dev DB** — PostgreSQL 16 (6432) + Pgbouncer (5432) + Node Exporter *(local notebook)* | `/opt/docker` |
+| home016.localdomain | 192.168.15.117 | **Dev Desktop** *(this machine)* — Docker 29.3.1 + Docker Compose | N/A |
 
 **Technology stack**:
 - Language: Python 3 (reStructuredText docstrings, Doctest, Fabric pattern)
@@ -289,4 +289,4 @@ is documented with stakeholder approval.
 appropriate agent via the trigger phrase defined in
 `.github/prompts/[role].prompt.md`.
 
-**Version**: 2.1.0 | **Ratified**: 2026-04-01 | **Last Amended**: 2026-04-01
+**Version**: 2.2.0 | **Ratified**: 2026-04-01 | **Last Amended**: 2026-04-02
