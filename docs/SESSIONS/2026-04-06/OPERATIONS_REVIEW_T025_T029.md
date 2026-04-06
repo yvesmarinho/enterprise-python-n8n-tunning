@@ -147,3 +147,45 @@ Como `prod-collector-api` não está presente em `wfdb01`, a confirmação da fl
 ## 5. Decisão Operacional
 
 A execução de T025 em `wfdb01` foi validada com sucesso. O gate T029 também já produziu evidência suficiente: `DUAL_COLLECTION` confirmado remotamente em `wfdb01`, com drift explícito entre a documentação legada (`prod-collector-api`) e a topologia real do host. O próximo passo de F18 é consolidar a issue para o projeto responsável pelo serviço que hoje expõe os jobs `collector_api_*`.
+
+---
+
+## 6. Execução de Continuidade — T032 a T034 (2026-04-06)
+
+### T032 — Gates AFTER em `wfdb01`
+
+- `check_n8n_metrics.py --metrics-url https://testn8n.vya.digital`:
+	- `status: pass`
+	- métricas encontradas: `n8n_scaling_mode_queue_jobs_active`, `n8n_scaling_mode_queue_jobs_waiting`, `n8n_scaling_mode_queue_jobs_completed`, `n8n_scaling_mode_queue_jobs_failed`
+- `purge_execution_entity.py --check-only` em `wfdb02:n8n_dev_db`:
+	- `row_count_before: 129`
+	- `table_size_before_mb: 1.16`
+	- execução bem-sucedida com `PG_USER=n8n_user` e segredo local `.secrets/n8n_db_wfdb02.json` (chave `db_password`)
+- `validate_prometheus.py` remoto em `wfdb01` (VM interno `http://172.20.0.13:8428`, modo `dual-collection`):
+	- `verdict: DUAL_COLLECTION`
+	- jobs detectados: `collector_api_wf001_usa`, `collector_api_wf001_usa_ping_data`, `n8n`, `pushgateway_wfdb01`
+- Smoke HTTP:
+	- `/healthz` -> `200`
+	- `/metrics` -> `200`
+	- `/api/v1/workflows` -> `401` (endpoint protegido por autenticação)
+
+### T033 — ProvenanceGate pós-change externo
+
+- Execução local do modo `provenance-gate` com saída em:
+	- `docs/SESSIONS/2026-04-06/f18-provenance-gate-report.json`
+- Resultado:
+	- `verdict: PROVENANCE_FAIL`
+	- `pushgateway_absent_1h: false`
+	- erro de conectividade para VM informado pelo script: `Connection refused` em `http://86.48.31.149:8428`
+
+### T034 — Promoção em bloco para `wf001`
+
+- **Não executado** por bloqueio de gate:
+	- T033 não aprovado (`PROVENANCE_FAIL`)
+	- regra do projeto exige gate completo + aprovação antes de promover F16/F17/F18 em bloco para produção
+
+### Próxima ação operacional
+
+1. Corrigir conectividade/rota para endpoint VM de validação do T033 (ou executar ProvenanceGate diretamente no host com endpoint interno válido).
+2. Reexecutar T033 e exigir `PROVENANCE_OK`.
+3. Somente após isso, abrir janela e executar T034 em `wf001` com monitoramento pós-promoção.
