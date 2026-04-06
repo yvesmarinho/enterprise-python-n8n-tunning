@@ -11,6 +11,6 @@ galaxy_info:
   platforms:
     - name: Debian
       versions:
-        - "12"
+        - all
 
 dependencies: []

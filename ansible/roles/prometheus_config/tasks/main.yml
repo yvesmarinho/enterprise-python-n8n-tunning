@@ -4,4 +4,4 @@
 
 - name: F18 dual-collection audit tasks
   ansible.builtin.include_tasks: f18_audit.yml
-  tags: [f18, f18-audit]
+  tags: [ f18, f18-audit ]

@@ -109,22 +109,13 @@ project_context:
           - "Ambiente de producao — alteracoes exigem janela de manutencao e
             backup validado"
           - "Mesmo IP que wf001 (31.220.103.208) — diferentes portas/subdomínios"
-      - hostname: "home011.localdomain"
-        ip: "192.168.15.198"
-        role: "Servidor de Banco de dados de desenvolvimento — hospeda o PostgreSQL,
-          base de dados do N8N"
-        services:
-          - "PostgreSQL versao 16 — porta 6432"
-          - "Pgbouncer (pool de conexoes para PostgreSQL) — porta 5432"
-          - "Node Exporter (monitoramento de banco de dados via Prometheus)"
-          - "Outros containers de monitoramento e infraestrutura"
-        path_docker_default: "/opt/docker"
+      - hostname: "wfdb02.vya.digital"
+        ip: "82.197.64.145"
+        role: "Servidor de banco compartilhado — hospeda `n8n_dev_db` (DEV) e `n8n_db`
+          (PROD)"
         notes:
-          - "Ambiente de desenvolvimento — alteracoes podem ser feitas sem
-            janela de manutencao, mas backup recomendado antes de mudancas
-            destrutivas"
-          - "Acesso via SSH SPA conforme .secrets/ssh.json"
-          - "Notebook rede local"
+          - "O banco DEV usado pelo projeto e o `n8n_dev_db` no wfdb02"
+          - "Toda validacao de Vetor B deve ocorrer primeiro em `n8n_dev_db`"
       - hostname: "home016.localdomain"
         ip: "192.168.15.117"
         role: "Desktop (este computador) docker de desenvolvimento — hospeda o N8N"

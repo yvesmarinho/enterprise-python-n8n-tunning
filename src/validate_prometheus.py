@@ -43,10 +43,12 @@ from datetime import datetime, timezone
 
 log = logging.getLogger(__name__)
 
-# PromQL para detectar série Pushgateway (instance começa com 0.0.0.0)
-PUSHGATEWAY_QUERY = '{instance=~".*0\\.0\\.0\\.0.*"}'
+# PromQL para detectar jobs distintos que exportam métricas n8n_*.
+N8N_METRIC_JOBS_QUERY = 'count by (job)({__name__=~"n8n_.*"})'
+PUSHGATEWAY_JOB_MATCHER = 'job=~".*pushgateway.*|.*push.*"'
+PUSHGATEWAY_QUERY = f'count by (job)({{{PUSHGATEWAY_JOB_MATCHER}}})'
 PUSHGATEWAY_ABSENT_QUERY = (
-    'absent_over_time({instance=~".*0\\.0\\.0\\.0.*",job="pushgateway"}[1h])'
+    f'absent_over_time({{{PUSHGATEWAY_JOB_MATCHER}}}[1h])'
 )
 EXECUTION_COUNT_QUERY = "n8n_executions_total"
 
@@ -71,6 +73,9 @@ def vm_query(vm_url: str, promql: str, timeout: int = 15) -> dict:
             return data.get("data", {})
     except TimeoutError:
         return {"error": "timeout"}
+    except urllib.error.HTTPError as exc:
+        details = exc.read().decode("utf-8", errors="replace")
+        return {"error": f"HTTP {exc.code}: {details}"}
     except urllib.error.URLError as exc:
         return {"error": str(exc)}
 
@@ -85,13 +90,15 @@ def detect_dual_collection(vm_url: str, lookback: str) -> dict:
     >>> callable(detect_dual_collection)
     True
     """
-    query = PUSHGATEWAY_QUERY
-    data = vm_query(vm_url, query)
+    del lookback
+
+    data = vm_query(vm_url, N8N_METRIC_JOBS_QUERY)
 
     if "error" in data:
         return {
             "vm_accessible": False,
             "pushgateway_series_found": [],
+            "n8n_metric_jobs_found": [],
             "direct_scrape_series_count": 0,
             "dual_collection_active": False,
             "verdict": "NO_DATA",
@@ -99,7 +106,21 @@ def detect_dual_collection(vm_url: str, lookback: str) -> dict:
         }
 
     series = data.get("result", [])
-    pushgateway_labels = [s.get("metric", {}) for s in series]
+    n8n_metric_jobs = []
+    for item in series:
+        metric = item.get("metric", {})
+        try:
+            series_count = int(float(item["value"][1]))
+        except (KeyError, IndexError, TypeError, ValueError):
+            series_count = 0
+        n8n_metric_jobs.append(
+            {"job": metric.get("job", ""), "series_count": series_count}
+        )
+
+    push_data = vm_query(vm_url, PUSHGATEWAY_QUERY)
+    pushgateway_labels = []
+    if "result" in push_data:
+        pushgateway_labels = [s.get("metric", {}) for s in push_data["result"]]
 
     # Contar séries de scrape direto
     direct_data = vm_query(vm_url, 'count({job!="pushgateway"})')
@@ -110,12 +131,13 @@ def detect_dual_collection(vm_url: str, lookback: str) -> dict:
         except (KeyError, IndexError, ValueError):
             pass
 
-    dual_active = len(pushgateway_labels) > 0
+    dual_active = len(n8n_metric_jobs) > 1
     verdict = "DUAL_COLLECTION" if dual_active else "SINGLE_SCRAPE"
 
     return {
         "vm_accessible": True,
         "pushgateway_series_found": pushgateway_labels,
+        "n8n_metric_jobs_found": n8n_metric_jobs,
         "direct_scrape_series_count": direct_count,
         "dual_collection_active": dual_active,
         "verdict": verdict,
@@ -192,6 +214,7 @@ def _get_pg_execution_count(host: str, port: int, dbname: str) -> int | None:
 
     pg_user = os.environ.get("PG_USER", "n8n")
     pg_password = os.environ.get("PG_PASSWORD", "")
+    conn = None
     try:
         conn = psycopg2.connect(
             host=host,
@@ -205,14 +228,12 @@ def _get_pg_execution_count(host: str, port: int, dbname: str) -> int | None:
             cur.execute("SELECT COUNT(*) FROM execution_entity")  # noqa: S608
             row = cur.fetchone()
             return int(row[0]) if row else None
-    except Exception as exc:  # noqa: BLE001
+    except (psycopg2.Error, TypeError, ValueError) as exc:
         log.warning("Erro ao consultar PostgreSQL: %s", exc)
         return None
     finally:
-        try:
+        if conn is not None:
             conn.close()
-        except Exception:  # noqa: BLE001
-            pass
 
 
 def _get_vm_execution_count(vm_url: str) -> int | None:

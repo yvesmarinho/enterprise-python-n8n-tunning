@@ -14,9 +14,9 @@ de F17 antes da geração de tasks.md (author self-review)
 >
 > **Vetor B — PostgreSQL pg_stat_statements (wfdb02)**:
 > wfdb02 é um servidor de banco de dados de **produção compartilhado**. Toda
-> validação deve ser feita primeiramente em **home011 ou wfdb01 local PostgreSQL**
-> (desenvolvimento) e com janela de manutenção aprovada. A promoção direta para
-> wfdb02 sem validação em dev é **proibida**.
+> validação deve ser feita primeiramente em **`n8n_dev_db` no próprio wfdb02**
+> (gate DEV lógico) e com janela de manutenção aprovada. Qualquer operação no
+> `n8n_db` sem validação prévia no banco DEV é **proibida**.
 >
 > **Esta distinção de ambientes deve estar nitidamente documentada em cada
 > requisito, playbook e task gerada.**
@@ -27,14 +27,13 @@ de F17 antes da geração de tasks.md (author self-review)
 
 - [ ] CHK031 — O spec distingue claramente os dois vetores de F17 quanto à
   sequência de ambientes? Vetor A (N8N env vars): wfdb01 → wf001. Vetor B
-  (PostgreSQL pg_stat_statements): dev local (home011 / wfdb01 PostgreSQL)
-  → wfdb02 com janela de manutenção? [Completeness, Gap — Spec §US2]
+  (PostgreSQL pg_stat_statements): `wfdb02:n8n_dev_db` → `wfdb02:n8n_db`
+  com janela de manutenção? [Completeness, Gap — Spec §US2]
 
 - [ ] CHK032 — Existe um ambiente de desenvolvimento PostgreSQL explicitamente
   definido para validação de `pg_stat_statements` antes de aplicar em wfdb02
-  (produção)? O `home011.localdomain` (PostgreSQL 16, 192.168.15.198:6432) é
-  o candidato natural — está documentado como ambiente de validação? [Gap,
-  Infrastructure Safety]
+  (produção)? O `n8n_dev_db` em `wfdb02` está documentado como ambiente de
+  validação? [Gap, Infrastructure Safety]
 
 - [ ] CHK033 — O gate de aprovação de F17 em wfdb01 (para o Vetor A) está
   separado da janela de manutenção de wfdb02 (Vetor B)? Os dois gates têm
@@ -204,7 +203,7 @@ de F17 antes da geração de tasks.md (author self-review)
 
 - [ ] CHK061 — Há requisito que proíba aplicar qualquer operação do Vetor B
   (pg_stat_statements) diretamente em wfdb02 sem evidência documentada de
-  que o procedimento foi testado em ambiente de desenvolvimento (home011)?
+  que o procedimento foi testado em `n8n_dev_db`?
   [Infrastructure Safety, Dev-Before-Prod — Gap]
 
 ---

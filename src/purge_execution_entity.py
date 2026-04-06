@@ -38,13 +38,28 @@ log = logging.getLogger(__name__)
 
 TABLE_NAME = "execution_entity"
 SIZE_QUERY = (
-    "SELECT pg_size_pretty(pg_total_relation_size($1)), "
-    "pg_total_relation_size($1) / 1024.0 / 1024.0 AS size_mb"
+    "SELECT pg_size_pretty(pg_total_relation_size(%s::regclass)), "
+    "pg_total_relation_size(%s::regclass) / 1024.0 / 1024.0 AS size_mb"
 )
 COUNT_QUERY = f"SELECT COUNT(*) AS cnt FROM {TABLE_NAME}"  # noqa: S608
 DELETE_QUERY = (
     f'DELETE FROM {TABLE_NAME} WHERE "startedAt" < NOW() - INTERVAL %s'  # noqa: S608
 )
+
+
+def _import_psycopg2():
+    """Importa psycopg2 sob demanda.
+
+    :returns: Módulo psycopg2.
+    :raises SystemExit: Com código 1 se a dependência não estiver instalada.
+    """
+    try:
+        import psycopg2  # noqa: PLC0415
+    except ImportError:
+        log.error("psycopg2-binary não instalado. Execute: pip install psycopg2-binary")
+        sys.exit(1)
+
+    return psycopg2
 
 
 def get_connection(host: str, port: int, dbname: str):  # type: ignore[return]
@@ -59,11 +74,7 @@ def get_connection(host: str, port: int, dbname: str):  # type: ignore[return]
     >>> callable(get_connection)
     True
     """
-    try:
-        import psycopg2  # noqa: PLC0415
-    except ImportError:
-        log.error("psycopg2-binary não instalado. Execute: pip install psycopg2-binary")
-        sys.exit(1)
+    psycopg2 = _import_psycopg2()
 
     pg_user = os.environ.get("PG_USER", "n8n")
     pg_password = os.environ.get("PG_PASSWORD", "")
@@ -79,7 +90,7 @@ def get_connection(host: str, port: int, dbname: str):  # type: ignore[return]
         )
         conn.autocommit = False
         return conn
-    except Exception as exc:  # noqa: BLE001
+    except psycopg2.Error as exc:
         log.error("Erro ao conectar ao PostgreSQL: %s", exc)
         sys.exit(1)
 
@@ -91,7 +102,7 @@ def get_table_size_mb(cur, table: str) -> float:
     :param table: Nome da tabela.
     :returns: Tamanho em megabytes (float).
     """
-    cur.execute(SIZE_QUERY, (table,))
+    cur.execute(SIZE_QUERY, (table, table))
     row = cur.fetchone()
     return float(row[1]) if row else 0.0
 
@@ -115,10 +126,12 @@ def run_purge(cur, prune_days: int) -> int:
     :returns: Número de linhas deletadas.
     :raises SystemExit: Com código 2 em caso de erro de query.
     """
+    psycopg2 = _import_psycopg2()
+
     try:
         cur.execute(DELETE_QUERY, (f"{prune_days} days",))
         return cur.rowcount
-    except Exception as exc:  # noqa: BLE001
+    except psycopg2.Error as exc:
         log.error("Erro na query de purgação: %s", exc)
         sys.exit(2)
 
@@ -163,6 +176,7 @@ def main(argv: list[str] | None = None) -> int:
         stream=sys.stderr, level=logging.INFO, format="%(levelname)s %(message)s"
     )
     args = build_parser().parse_args(argv)
+    psycopg2 = _import_psycopg2()
 
     conn = get_connection(args.db_host, args.db_port, args.db_name)
 
@@ -191,7 +205,7 @@ def main(argv: list[str] | None = None) -> int:
                     size_before_mb,
                 )
 
-    except Exception as exc:  # noqa: BLE001
+    except (psycopg2.Error, ValueError, TypeError) as exc:
         log.error("Erro inesperado: %s", exc)
         conn.rollback()
         sys.exit(2)

@@ -171,7 +171,7 @@ Todos os 7 princípios permanecem ✅ após resolução de incógnitas:
 - **VI. Observability** ✅ — R-006 define coleta sistemática de before/after;
   R-007 define ProvenanceGate como validação pós-correção
 - **VII. Credential Hygiene** ✅ — R-004 confirma diagnóstico de leitura;
-  home011 é ambiente local sem exposição de credentials de produção
+  `n8n_dev_db` evita depender de um host local adicional e mantém o fluxo em credenciais controladas de wfdb02
 
 ---
 
@@ -204,28 +204,23 @@ na promoção em bloco.
 
 ---
 
-## R-008: Ambiente home011 como DEV para Vetor B (pg_stat_statements)
+## R-008: Banco n8n_dev_db em wfdb02 como DEV para Vetor B (pg_stat_statements)
 
-**Contexto**: CHK031 identificou que não havia ambiente de desenvolvimento
-justificado para validar pg_stat_statements antes de aplicar em wfdb02 (produção).
+**Contexto**: O fluxo operacional atual não usa mais `home011` como banco DEV.
+O gate do Vetor B precisa refletir o uso do banco `n8n_dev_db` no próprio `wfdb02`.
 
-**Decision**: `home011.localdomain` (192.168.15.198:6432) é o PostgreSQL de
-desenvolvimento para F17 Vetor B. O playbook (tag `f17-setup-dev`) DEVE:
-1. Conectar em wfdb02 e capturar: `pg_settings` relevantes, extensões instaladas,
-   configuração de `shared_preload_libraries`.
-2. Aplicar uma configuração equivalente em home011 (PostgreSQL 16 local),
-   respeitando os limites de hardware do notebook (RAM/CPU menores).
-3. Executar `CREATE EXTENSION IF NOT EXISTS pg_stat_statements` no banco `n8n_db`
-   de home011 e validar output de `pg_stat_statements.enabled`.
+**Decision**: O banco `n8n_dev_db` em `wfdb02` (82.197.64.145:6432) é o banco de
+desenvolvimento para F17 Vetor B. O gate DEV DEVE:
+1. Executar a ativação de `pg_stat_statements` primeiro com `db_name: n8n_dev_db`.
+2. Validar a extensão no `n8n_dev_db` antes de qualquer operação posterior em `n8n_db`.
+3. Registrar aprovação explícita do `test-engineer` para qualquer promoção subsequente.
 
 **Rationale**:
-- Vetor B (pg_stat_statements) requer restart do PostgreSQL. Validar o processo
-  completo em um ambiente equivalente reduz o risco de surpresas em produção.
-- home011 já está listado na infraestrutura do projeto (constitution v2.2.0).
-- Regra do projeto: todo teste/homologação DEVE ocorrer no ambiente de
+- Vetor B (pg_stat_statements) requer restart do PostgreSQL. A realidade
+  operacional do projeto passou a usar `n8n_dev_db` como gate DEV no mesmo host.
+- Regra do projeto: todo teste/homologação DEVE ocorrer primeiro no ambiente de
   desenvolvimento antes de iniciar a atualização do ambiente de produção.
 
 **Alternatives considered**:
-- Testar diretamente em wfdb01 (N8N test server) → rejeitado: wfdb01 é o
-  servidor de teste do N8N, não um ambiente PostgreSQL independente; usar
-  home011 mantém o banco de test separado.
+- Manter `home011` como gate DEV → rejeitado: o projeto não utiliza mais o
+  servidor local `192.168.15.198` como banco de desenvolvimento.

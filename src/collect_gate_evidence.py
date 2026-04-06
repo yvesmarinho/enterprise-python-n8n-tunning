@@ -242,7 +242,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--environment",
         required=True,
-        choices=["wfdb01", "wf001", "home011"],
+        choices=["wfdb01", "wf001", "wfdb02"],
         help="Ambiente onde a feature foi aplicada",
     )
     p.add_argument(

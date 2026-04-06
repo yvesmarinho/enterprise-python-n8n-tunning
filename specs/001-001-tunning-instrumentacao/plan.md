@@ -85,7 +85,7 @@ ansible/
 │       ├── all.yml           # vars compartilhadas (sem credenciais)
 │       ├── wfdb01.yml
 │       ├── wf001.yml
-│       └── home011.yml       # ambiente de desenvolvimento local
+│       └── wfdb02.yml        # overrides DEV/PROD do PostgreSQL
 ├── playbooks/
 │   ├── f16-queue-metrics.yml
 │   ├── f17-postgres-tuning.yml

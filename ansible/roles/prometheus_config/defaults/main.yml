@@ -8,7 +8,14 @@ vm_url: http://86.48.31.149:8428
 
 # Feature e ambiente (usados em labels e relatórios)
 feature_id: F18
-environment: wfdb01
+prometheus_config_environment: wfdb01
 
 # Lookback para PromQL (modo dual-collection)
 promql_lookback_minutes: 60
+
+# F18 audit discovery defaults
+f18_primary_container_name: prod-collector-api
+f18_prometheus_container_name: enterprise-prometheus
+f18_container_name_regex: "collector|pushgateway|prometheus|victoriametrics|n8n"
+f18_env_var_match_regex: ".*[Pp]ush[Gg]ateway.*|.*PUSHGATEWAY.*|.*PUSH_URL.*|.*PROMETHEUS_.*"
+f18_prometheus_job_line_regex: "collector_api|pushgateway|n8n|9091|5001"

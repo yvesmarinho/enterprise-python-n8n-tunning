@@ -14,6 +14,6 @@ backup_dir: /tmp
 
 # --- pg_stat_statements (Vetor B) ---
 # ATENÇÃO: Vetor B requer restart do PostgreSQL.
-# Sempre validar em home011 antes de executar em wfdb02.
+# Validar primeiro em n8n_dev_db antes de qualquer operação no n8n_db.
 pg_stat_statements_max: 10000
 pg_stat_statements_track: all

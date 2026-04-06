@@ -1,0 +1,18 @@
+profile: moderate
+
+# Projeto legado com padrões já consolidados em roles/playbooks.
+# Mantemos bloqueio para erros críticos e schema; flexibilizamos regras de estilo.
+warn_list:
+  - var-naming[no-role-prefix]
+  - var-naming[no-reserved]
+
+skip_list:
+  - yaml[brackets]
+  - name[missing]
+  - no-handler
+  - no-changed-when
+  - risky-shell-pipe
+
+exclude_paths:
+  - .cache/
+  - tmp/

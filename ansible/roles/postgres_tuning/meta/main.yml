@@ -5,12 +5,12 @@ galaxy_info:
   description: >
     Gerencia backup pg_dump, ativação de EXECUTIONS_DATA_PRUNE (Vetor A) e
     provisionamento de pg_stat_statements (Vetor B) para o banco n8n_db. Vetor B
-    requer validação prévia em home011 antes de wfdb02.
+    requer validação prévia em n8n_dev_db antes de qualquer operação no n8n_db.
   license: MIT
   min_ansible_version: "2.15"
   platforms:
     - name: Debian
       versions:
-        - "12"
+        - all
 
 dependencies: []

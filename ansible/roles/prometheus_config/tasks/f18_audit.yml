@@ -6,17 +6,17 @@
 
 - name: F18 | Audit — Inspecionar container prod-collector-api
   ansible.builtin.command:
-    cmd: docker inspect prod-collector-api
+    cmd: "docker inspect {{ f18_primary_container_name }}"
   register: inspect_result
   changed_when: false
   failed_when: inspect_result.rc not in [0, 1]
-  tags: [f18, f18-audit]
+  tags: [ f18, f18-audit ]
 
 - name: F18 | Audit — Registrar resultado da inspeção (container encontrado?)
   ansible.builtin.set_fact:
     f18_container_found: "{{ inspect_result.rc == 0 }}"
     f18_inspect_raw: "{{ inspect_result.stdout | from_json if inspect_result.rc == 0 else [] }}"
-  tags: [f18, f18-audit]
+  tags: [ f18, f18-audit ]
 
 - name: F18 | Audit — Extrair variáveis de ambiente Pushgateway-related
   ansible.builtin.set_fact:
@@ -28,7 +28,76 @@
         | list
       }}
   when: f18_container_found | bool
-  tags: [f18, f18-audit]
+  tags: [ f18, f18-audit ]
+
+- name: F18 | Audit — Listar containers relevantes do host
+  ansible.builtin.command:
+    cmd: "docker ps --format {{ '{{.Names}}' }}"
+  register: f18_running_containers
+  changed_when: false
+  tags: [ f18, f18-audit ]
+
+- name: F18 | Audit — Selecionar containers de topologia observável
+  ansible.builtin.set_fact:
+    f18_topology_containers: >-
+      {{
+        f18_running_containers.stdout_lines
+        | select('search', f18_container_name_regex)
+        | list
+      }}
+  tags: [ f18, f18-audit ]
+
+- name: F18 | Audit — Inspecionar containers relevantes
+  ansible.builtin.command:
+    cmd: "docker inspect {{ item }}"
+  loop: "{{ f18_topology_containers }}"
+  register: f18_topology_inspects
+  changed_when: false
+  failed_when: false
+  tags: [ f18, f18-audit ]
+
+- name: F18 | Audit — Resumir variáveis relevantes por container
+  ansible.builtin.set_fact:
+    f18_container_summaries: >-
+      {{
+        (f18_container_summaries | default([]))
+        + [
+            {
+              'name': item.item,
+              'image': ((item.stdout | from_json)[0].Config.Image) if item.rc == 0 else '',
+              'env_matches': (
+                ((item.stdout | from_json)[0].Config.Env | default([]))
+                | select('match', f18_env_var_match_regex)
+                | list
+              ) if item.rc == 0 else []
+            }
+          ]
+      }}
+  loop: "{{ f18_topology_inspects.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  tags: [ f18, f18-audit ]
+
+- name: F18 | Audit — Ler configuração do Prometheus
+  ansible.builtin.command:
+    cmd: "docker exec {{ f18_prometheus_container_name }} cat
+      /etc/prometheus/prometheus.yml"
+  register: f18_prometheus_config
+  changed_when: false
+  failed_when: false
+  tags: [ f18, f18-audit ]
+
+- name: F18 | Audit — Extrair linhas relevantes do scrape topology
+  ansible.builtin.set_fact:
+    f18_prometheus_relevant_lines: >-
+      {{
+        f18_prometheus_config.stdout_lines
+        | default([])
+        | select('search', f18_prometheus_job_line_regex)
+        | list
+      }}
+  when: f18_prometheus_config.rc == 0
+  tags: [ f18, f18-audit ]
 
 - name: F18 | Audit — Copiar JSON de inspeção para o controlador local
   ansible.builtin.copy:
@@ -39,19 +108,23 @@
   delegate_to: localhost
   when: f18_container_found | bool
   changed_when: true
-  tags: [f18, f18-audit]
+  tags: [ f18, f18-audit ]
 
 - name: F18 | Audit — Exibir variáveis Pushgateway encontradas
   ansible.builtin.debug:
     msg: >
       F18 Audit — host: {{ inventory_hostname }} container_found: {{
       f18_container_found }} pushgateway_vars: {{ f18_env_vars | default([]) }}
-  tags: [f18, f18-audit]
+      topology_containers: {{ f18_topology_containers | default([]) }}
+      container_summaries: {{ f18_container_summaries | default([]) }}
+      prometheus_lines: {{ f18_prometheus_relevant_lines | default([]) }}
+  tags: [ f18, f18-audit ]
 
 - name: F18 | Audit — Aviso se container não encontrado
   ansible.builtin.debug:
     msg: >
-      ⚠️ prod-collector-api NÃO encontrado em {{ inventory_hostname }}.
-      Verifique o nome correto do container com: docker ps -a
+      ⚠️ {{ f18_primary_container_name }} NÃO encontrado em {{
+      inventory_hostname }}. Usar topologia observável e Prometheus config para
+      localizar a origem real da dupla coleta.
   when: not f18_container_found | bool
-  tags: [f18, f18-audit]
+  tags: [ f18, f18-audit ]

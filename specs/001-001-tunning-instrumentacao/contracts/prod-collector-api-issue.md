@@ -2,7 +2,7 @@
 
 **Gerado por**: Feature F18 — Documentação de Dupla Coleta e Change Request
 **Projeto destinatário**: projeto responsável pelo `prod-collector-api`
-**Gerado em**: _preencher na execução_
+**Gerado em**: 2026-04-06T13:39:45Z
 **Referência ANA-001**: dupla coleta confirmada ativa em wf001 e wfdb01
 
 ---
@@ -23,35 +23,41 @@ de throughput e alertas baseados em execuções.
 
 ## Diagnóstico — Resultados da Inspeção (`F18-PASSO-1`)
 
-> **Preencher com dados coletados na execução:**
-
 | Campo | Valor |
 |-------|-------|
-| Servidor inspecionado | `wfdb01` / `wf001` |
-| Comando de inspeção | `docker inspect prod-collector-api \| grep -i pushgateway` |
-| Variável de controle encontrada | _`PROMETHEUS_PUSHGATEWAY_ENABLED` — confirmar nome exato_ |
+| Servidor inspecionado | `wfdb01` |
+| Comando de inspeção | `ansible-playbook ansible/playbooks/f18-dual-collection-audit.yml -i ansible/inventory/ -l wfdb01` |
+| Variável de controle encontrada | `PROMETHEUS_PUSHGATEWAY_ENABLED` |
 | Valor atual | `true` |
-| Data da inspeção | _preencher_ |
+| Data da inspeção | `2026-04-06` |
+
+Observações da execução real:
+
+- `prod-collector-api` não existe em `wfdb01`
+- Containers observados na topologia local: `enterprise-pushgateway`, `enterprise-prometheus`, `enterprise-victoriametrics`, `n8n-n8n_editor-1`, `n8n-n8n_worker-1`, `n8n-n8n_webhook-1`, `n8n-n8n_mcp-1`
+- Linhas relevantes do `prometheus.yml` em `wfdb01`: `job_name: "pushgateway_wfdb01"`, target `pushgateway:9091`, `job_name: "n8n"`, target `31.220.103.208:5001`
+- Inspeção somente leitura em `wf001` confirmou o serviço `prod-collector-api` com imagem `adminvyadigital/n8n-collector-api:latest`
+- Variáveis confirmadas em `wf001`: `PROMETHEUS_PUSHGATEWAY_ENABLED=true`, `PROMETHEUS_PUSHGATEWAY_URL=https://prometheus.vya.digital/pushgateway`, `PROMETHEUS_PUSHGATEWAY_INTERVAL=60`, `PROMETHEUS_JOB_NAME=collector_api_wf001_usa`
+- Exposição direta confirmada em `wf001`: `0.0.0.0:5001 -> 5000/tcp`
 
 ---
 
 ## Evidência PromQL (`F18-PASSO-2`)
 
 ```promql
-# Query confirmatória — retorna séries do Pushgateway:
-{instance=~".*0\\.0\\.0\\.0.*", job="pushgateway"}
-
-# Magnitude da dupla contagem:
-# n8n_workflow_executions_total via pushgateway vs scrape direto
+count by (job)({__name__=~"n8n_.*"})
+count by (job)({job=~".*push.*"})
 ```
 
 | Métrica | Origem | Magnitude |
 |---------|--------|-----------|
-| `n8n_workflow_executions_total` | Pushgateway (`0.0.0.0:5000`) | _preencher_ |
-| `n8n_workflow_executions_total` | Scrape direto (`wf001:5001`) | _preencher_ |
-| **Delta (%)** | — | _preencher_ |
+| `n8n_*` | `collector_api_wf001_usa` | `471` séries |
+| `n8n_*` | `collector_api_wf001_usa_ping_data` | `471` séries |
+| `n8n_*` | `n8n` | `471` séries |
+| `job=~".*push.*"` | `pushgateway_wfdb01` | `58` séries |
+| **Veredito** | — | `DUAL_COLLECTION` |
 
-> Relatório completo em: `docs/SESSIONS/YYYY-MM-DD/f18-dual-collection-report.json`
+> Relatório completo em: `docs/SESSIONS/2026-04-06/f18-dual-collection-report.json`
 
 ---
 
@@ -86,6 +92,9 @@ services:
 > ⚠️ **Nota**: O nome exato da variável (`PROMETHEUS_PUSHGATEWAY_ENABLED`) deve
 > ser confirmado com o valor obtido na inspeção remota (Passo 1). Se o nome
 > for diferente, usar o nome correto identificado.
+
+> Confirmação concluída em `wf001`: a flag responsável pelo push está ativa como
+> `PROMETHEUS_PUSHGATEWAY_ENABLED=true`.
 
 ---
 
@@ -142,5 +151,5 @@ Referência: `specs/001-001-tunning-instrumentacao/spec.md` → FR-010, FR-011
 | Branch | `001-001-tunning-instrumentacao` |
 | Spec | `specs/001-001-tunning-instrumentacao/spec.md` |
 | Research | `specs/001-001-tunning-instrumentacao/research.md` → R-004 |
-| Solicitante | _preencher_ |
-| Data de submissão | _preencher_ |
+| Solicitante | `GitHub Copilot / sessão ANALYSIS 2026-04-06` |
+| Data de submissão | `2026-04-06` |

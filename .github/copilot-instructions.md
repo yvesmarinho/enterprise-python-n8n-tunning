@@ -5,10 +5,10 @@ applyTo: "**"
 # GitHub Copilot — Instruções do Projeto
 
 **Projeto**: `enterprise-python-n8n-tunning` — Enterprise Python N8n Tunning
-**Domínio**: infrastructure | **Linguagem**: python
+**Domínio**: analysis | **Linguagem**: python
 **Regras completas**: `.copilot-rules-enterprise-python-n8n-tunning.md`
 **Rituais de sessão**: `.github/prompts/session-start.prompt.md` | `session-end.prompt.md`
-**Domain Profile ativo**: `.github/prompts/domain/devops-infrastructure.prompt.md`
+**Domain Profile ativo**: `.github/prompts/domain/devops-analysis.prompt.md`
 
 ---
 
@@ -17,6 +17,7 @@ applyTo: "**"
 | Agente | Arquivo | Quando usar |
 |--------|---------|-------------|
 | `system-architect` | `.github/agents/system-architect.agent.md` | Arquitetura Docker, upgrade strategy, rollback design |
+| `performance-analyst` | `.github/agents/performance-analyst.agent.md` | Diagnóstico de throughput, fila, observabilidade e gargalos do N8N |
 | `n8n-specialist` | `.github/agents/n8n-specialist.agent.md` | Compatibilidade N8N, validação de workflows, análise de filas |
 | `devops-engineer` | `.github/agents/devops-engineer.agent.md` | Implementar F16–F20 via Ansible + Python |
 | `devops-automation` | `.github/agents/devops-automation.agent.md` | Governança SDD, sinc objetivo.yaml ↔ mcp-questions.yaml |

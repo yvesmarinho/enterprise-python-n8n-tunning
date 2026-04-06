@@ -6,8 +6,7 @@
 # Tags disponíveis:
 #   f17-backup    — pg_dump de wfdb02
 #   f17-prune     — ativa EXECUTIONS_DATA_PRUNE em wfdb01 (Vetor A)
-#   f17-setup-dev — prepara home011 com config equivalente ao wfdb02 (gate Vetor B)
-#   f17-pgstat    — ativa pg_stat_statements (Vetor B) — requer f17_pgstat_approved=true
+#   f17-pgstat    — valida/ativa pg_stat_statements em wfdb02 usando n8n_dev_db (gate DEV) — requer f17_pgstat_approved=true
 
 # --- Play 1: SPA Knock (obrigatório para acesso VPS) ---
 - name: SPA Knock — wfdb02 + wfdb01
@@ -71,21 +70,10 @@
         name: postgres_tuning
         tasks_from: f17_prune.yml
 
-# --- Play 4: Setup dev em home011 (gate obrigatório para Vetor B) ---
-- name: F17 — Setup home011 para validação Vetor B
-  hosts: home011
-  become: false
-  gather_facts: true
-  tags: [ f17, f17-setup-dev ]
-  tasks:
-    - ansible.builtin.import_role:
-        name: postgres_tuning
-        tasks_from: f17_setup_dev.yml
-
-# --- Play 5: Vetor B — pg_stat_statements (wfdb02) ---
+# --- Play 4: Vetor B — pg_stat_statements (wfdb02 / n8n_dev_db) ---
 # ⚠️ BLOQUEADO por padrão. Requer: -e f17_pgstat_approved=true
-# Deve ser executado APENAS após home011 gate validado e aprovação do test_engineer
-- name: "F17 — Vetor B: pg_stat_statements (wfdb02)"
+# Deve ser executado primeiro contra n8n_dev_db em wfdb02 e aprovado pelo test_engineer
+- name: "F17 — Vetor B: pg_stat_statements (wfdb02 / n8n_dev_db)"
   hosts: wfdb02
   become: false
   gather_facts: true

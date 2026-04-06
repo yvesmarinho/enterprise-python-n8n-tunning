@@ -114,22 +114,14 @@ prompt:
             - "Acesso via SSH SPA conforme .secrets/ssh.json"
             - "Servidor VPS USA/East Coast/New York — latência de rede otimizada
               para clientes globais"
-        - hostname: "home011.localdomain"
-          ip: "192.168.15.198"
-          role: "Servidor de Banco de dados de desenvolvimento — hospeda o PostgreSQL,
-            base de dados do N8N"
-          servicos:
-            - "PostgresSQL versão 16 - porta 6432"
-            - "Pgbouncer (pool de conexões para PostgreSQL) porta 5432"
-            - "Node Exporter (monitoramento de banco de dados via Prometheus)"
-            - "Outros containers de monitoramento e infraestrutura"
-          path_docker_derfault: "/opt/docker"
+        - hostname: "wfdb02.vya.digital"
+          ip: "82.197.64.145"
+          role: "Servidor de Banco de dados compartilhado — hospeda `n8n_dev_db` (DEV) e
+            `n8n_db` (PROD)"
           notas:
-            - "Ambiente de desenvolvimento — alterações podem ser feitas sem
-              janela de manutenção, mas backup recomendado antes de mudanças
-              destrutivas"
-            - "Acesso via SSH SPA conforme .secrets/ssh.json"
-            - "Notebook rede local"
+            - "O banco DEV do projeto é `n8n_dev_db` no próprio wfdb02"
+            - "Validação de Vetor B deve ocorrer primeiro em `n8n_dev_db` antes
+              de operar `n8n_db`"
         - hostname: "home016.localdomain"
           ip: "192.168.15.117"
           role: "Desktop (este computador) docker de desenvolvimento — hospeda o N8N"

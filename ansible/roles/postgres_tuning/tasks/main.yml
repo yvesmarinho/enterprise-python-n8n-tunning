@@ -11,10 +11,6 @@
   ansible.builtin.import_tasks: f17_prune.yml
   tags: [ f17, f17-prune ]
 
-- name: F17 setup dev tasks (home011)
-  ansible.builtin.import_tasks: f17_setup_dev.yml
-  tags: [ f17, f17-setup-dev ]
-
 - name: F17 pg_stat_statements tasks
   ansible.builtin.import_tasks: f17_pgstat.yml
   tags: [ f17, f17-pgstat ]

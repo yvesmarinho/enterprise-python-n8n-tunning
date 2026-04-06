@@ -30,12 +30,6 @@ all:
           ansible_host: 82.197.64.145
           ansible_port: 5010
           ansible_user: docker_user
-    home011:
-      hosts:
-        home011.localdomain:
-          ansible_host: 192.168.15.198
-          ansible_port: 22            # SSH local (sem SPA)
-          ansible_user: "{{ local_dev_user }}"  # var em group_vars/home011.yml
 ```
 
 ## Variáveis Obrigatórias (group_vars)
@@ -51,7 +45,8 @@ n8n_prune_timeout_ms: 3600000
 db_host: 82.197.64.145
 db_port: 6432                         # PostgreSQL direto
 db_pgbouncer_port: 5432               # Pgbouncer
-db_name: n8n_db                       # confirmado
+db_name: n8n_dev_db                   # gate DEV atual
+db_name_prod: n8n_db                  # referência para fase posterior
 ```
 
 ## Execução dos Playbooks
@@ -79,7 +74,6 @@ ansible-playbook ansible/playbooks/f18-dual-collection-audit.yml \
 | `f17` | Tasks de PostgreSQL tuning |
 | `f17-backup` | Apenas backup pg_dump |
 | `f17-prune` | Apenas configuração de purgação |
-| `f17-setup-dev` | Preparar home011 com config equivalente de wfdb02 (Vetor B dev) |
 | `f17-pgstat` | Apenas pg_stat_statements |
 | `f18` | Diagnóstico de dupla coleta (somente leitura) + geração de change request |
 | `gate` | Smoke tests e coleta de evidências |

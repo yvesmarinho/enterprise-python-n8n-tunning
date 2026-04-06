@@ -1,0 +1,28 @@
+{
+    "mode": "dual-collection",
+    "checked_at": "2026-04-06T13:39:45.622930+00:00",
+    "vm_accessible": true,
+    "pushgateway_series_found": [
+        {
+            "job": "pushgateway_wfdb01"
+        }
+    ],
+    "n8n_metric_jobs_found": [
+        {
+            "job": "collector_api_wf001_usa",
+            "series_count": 471
+        },
+        {
+            "job": "collector_api_wf001_usa_ping_data",
+            "series_count": 471
+        },
+        {
+            "job": "n8n",
+            "series_count": 471
+        }
+    ],
+    "direct_scrape_series_count": 45747,
+    "dual_collection_active": true,
+    "verdict": "DUAL_COLLECTION",
+    "error": null
+}

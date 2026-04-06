@@ -6,12 +6,12 @@ profile: moderate
 
 # Avisos que podem ser ignorados para este projeto
 warn_list:
-  - var-naming[no-role-prefix]   # variáveis simples sem prefixo de role são aceitáveis
-  - var-naming[no-reserved]      # 'environment' usado internacionalmente em group_vars
+  - var-naming[no-role-prefix] # variáveis simples sem prefixo de role são aceitáveis
+  - var-naming[no-reserved] # 'environment' usado internacionalmente em group_vars
 
 # Ignorar erros de schema galaxy (Debian 12 não reconhecido pela galeria)
 skip_list:
-  - schema[meta]                 # schema galaxy: Debian 12 não listado nas versões aceitáveis
+  - schema[meta] # schema galaxy: Debian 12 não listado nas versões aceitáveis
 
 # Excluir diretórios não relevantes
 exclude_paths:

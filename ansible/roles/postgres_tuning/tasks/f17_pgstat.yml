@@ -2,19 +2,36 @@
 # ansible/roles/postgres_tuning/tasks/f17_pgstat.yml
 # Ativa pg_stat_statements via ALTER SYSTEM + reinício do PostgreSQL (F17 — Vetor B)
 # ⚠️ ATENÇÃO: Requer restart do PostgreSQL (possível downtime breve)
-# ⚠️ GATE OBRIGATÓRIO: Executar f17_setup_dev.yml + validar em home011 ANTES de wfdb02
+# ⚠️ GATE OBRIGATÓRIO: Validar primeiro em n8n_dev_db no wfdb02 ANTES de qualquer operação no n8n_db
 # Controlado por: f17_pgstat_approved: true (deve ser passado explicitamente)
 
+- name: F17 | pgstat — Ler shared_preload_libraries atual
+  ansible.builtin.command:
+    argv:
+      - psql
+      - -d
+      - postgres
+      - -tAc
+      - SHOW shared_preload_libraries
+  register: pgstat_current_setting
+  changed_when: false
+  become: true
+  become_user: postgres
+  tags: [ f17, f17-pgstat ]
+
 - name: F17 | pgstat — Configurar shared_preload_libraries via ALTER SYSTEM
-  community.postgresql.postgresql_set:
-    name: shared_preload_libraries
-    value: pg_stat_statements
-    login_host: "{{ db_host }}"
-    login_port: "{{ db_port }}"
-    login_user: "{{ db_user | default('n8n') }}"
-    login_password: "{{ lookup('env', 'PG_PASSWORD') }}"
-    db: "{{ db_name }}"
+  ansible.builtin.command:
+    argv:
+      - psql
+      - -d
+      - postgres
+      - -c
+      - ALTER SYSTEM SET shared_preload_libraries = 'pg_stat_statements';
   register: pgset_result
+  changed_when: pgset_result.rc == 0
+  when: "'pg_stat_statements' not in (pgstat_current_setting.stdout | trim)"
+  become: true
+  become_user: postgres
   tags: [ f17, f17-pgstat ]
 
 - name: F17 | pgstat — Restart controlado do PostgreSQL (aplica
@@ -23,7 +40,7 @@
     name: postgresql
     state: restarted
   become: true
-  when: pgset_result.changed
+  when: pgset_result is changed
   tags: [ f17, f17-pgstat ]
 
 - name: F17 | pgstat — Aguardar PostgreSQL reiniciar
@@ -35,30 +52,36 @@
   tags: [ f17, f17-pgstat ]
 
 - name: F17 | pgstat — Criar extensão pg_stat_statements
-  community.postgresql.postgresql_ext:
-    name: pg_stat_statements
-    db: "{{ db_name }}"
-    login_host: "{{ db_host }}"
-    login_port: "{{ db_port }}"
-    login_user: "{{ db_user | default('n8n') }}"
-    login_password: "{{ lookup('env', 'PG_PASSWORD') }}"
-    state: present
+  ansible.builtin.command:
+    argv:
+      - psql
+      - -d
+      - "{{ db_name }}"
+      - -c
+      - CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+  register: pgext_result
+  changed_when: "'already exists' not in (pgext_result.stderr | lower)"
+  become: true
+  become_user: postgres
   tags: [ f17, f17-pgstat ]
 
 - name: F17 | pgstat — Verificar pg_stat_statements ativo
-  community.postgresql.postgresql_query:
-    db: "{{ db_name }}"
-    login_host: "{{ db_host }}"
-    login_port: "{{ db_port }}"
-    login_user: "{{ db_user | default('n8n') }}"
-    login_password: "{{ lookup('env', 'PG_PASSWORD') }}"
-    query: "SELECT extname FROM pg_extension WHERE extname = 'pg_stat_statements'"
+  ansible.builtin.command:
+    argv:
+      - psql
+      - -d
+      - "{{ db_name }}"
+      - -tAc
+      - SELECT extname FROM pg_extension WHERE extname = 'pg_stat_statements'
   register: ext_check
+  changed_when: false
+  become: true
+  become_user: postgres
   tags: [ f17, f17-pgstat ]
 
 - name: F17 | pgstat — Assert pg_stat_statements está ativo
   ansible.builtin.assert:
-    that: ext_check.rowcount | int == 1
+    that: ext_check.stdout | trim == 'pg_stat_statements'
     fail_msg: "pg_stat_statements NÃO encontrado em pg_extension"
     success_msg: "pg_stat_statements ativo ✓"
   tags: [ f17, f17-pgstat ]

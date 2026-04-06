@@ -158,11 +158,11 @@ para a correção.
   apenas) e que `{instance=~".*0\.0\.0\.0.*", job="pushgateway"}` está
   ausente por ≥ 1 hora antes de incluir F18 no gate de promoção em bloco.
 - **FR-012**: O playbook de F17 (Vetor B — pg_stat_statements) DEVE coletar
-  a configuração existente do PostgreSQL de wfdb02 (parâmetros, extensões,
-  banco `n8n_db`) e provisionar um ambiente equivalente em
-  `home011.localdomain` (192.168.15.198:6432), respeitando os limites de
-  hardware do notebook. A validação de pg_stat_statements DEVE ser concluída
-  com sucesso em home011 antes de qualquer operação Vetor B em wfdb02.
+  a configuração existente do PostgreSQL de wfdb02 e validar o Vetor B
+  primeiramente no banco de desenvolvimento `n8n_dev_db` (mesmo cluster de
+  `wfdb02`) antes de qualquer operação no banco de produção `n8n_db`.
+  A validação de `pg_stat_statements` DEVE ser concluída com sucesso em
+  `n8n_dev_db` antes de qualquer promoção operacional do Vetor B.
 
 ### Key Entities
 
@@ -206,10 +206,9 @@ para a correção.
 - O banco de dados N8N reside exclusivamente em wfdb02 (82.197.64.145:6432) —
   wf001 é apenas o servidor de aplicação. **Nome do banco confirmado: `n8n_db`.**
 - PostgreSQL de desenvolvimento para validação de Vetor B (pg_stat_statements)
-  de F17: `home011.localdomain` (192.168.15.198:6432). Toda validação de Vetor B
-  DEVE ser aprovada em home011 antes de operações em wfdb02. O playbook coleta
-  a configuração de wfdb02 e recria a estrutura em home011 respeitando os
-  limites de hardware.
+  de F17: banco `n8n_dev_db` em `wfdb02` (82.197.64.145:6432). Toda validação de
+  Vetor B DEVE ocorrer primeiro nesse banco DEV antes de qualquer operação no
+  `n8n_db` de produção.
 - `docker-compose.override.yml` não existe nos servidores alvo (será criado
   pelo playbook); se existir, será preservado e complementado.
 - Janela de manutenção para reinício do PostgreSQL em wfdb02 (pg_stat_statements)

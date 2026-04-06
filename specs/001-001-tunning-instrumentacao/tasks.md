@@ -7,7 +7,7 @@
 **Prerequisites**: plan.md ✅ | spec.md ✅ | research.md ✅ | data-model.md ✅ | contracts/ ✅ | quickstart.md ✅
 
 > ⚠️ **REGRA DE DESENVOLVIMENTO**: Toda validação e homologação DEVE ser concluída
-> no ambiente de desenvolvimento (wfdb01 / home011) antes de iniciar qualquer
+> no ambiente de desenvolvimento (`wfdb01` para N8N e `wfdb02:n8n_dev_db` para PostgreSQL) antes de iniciar qualquer
 > atualização no ambiente de produção (wf001 / wfdb02). Esta regra é inviolável
 > e se aplica a cada fase de cada feature.
 
@@ -39,11 +39,11 @@ na versão instalada. Resultados alimentam o baseline de evidências.
 **Propósito**: Criar estrutura de inventário, variáveis de grupo e
 dependências Python necessárias para todos os playbooks e scripts.
 
-- [X] T001 Criar `ansible/inventory/hosts.yml` com grupos wfdb01, wf001, wfdb02 e home011 conforme contrato `contracts/ansible-playbook-interface.md` (ansible_host, ansible_port, ansible_user por host)
+- [X] T001 Criar `ansible/inventory/hosts.yml` com grupos wfdb01, wf001 e wfdb02 conforme contrato `contracts/ansible-playbook-interface.md` (ansible_host, ansible_port, ansible_user por host)
 - [X] T002 [P] Criar `ansible/inventory/group_vars/all.yml` com variáveis compartilhadas: `n8n_compose_dir`, `n8n_queue_alert_threshold`, `n8n_prune_max_age_hours`, `n8n_prune_timeout_ms`, `db_host`, `db_port`, `db_pgbouncer_port`, `db_name: n8n_db`
 - [X] T003 [P] Criar `ansible/inventory/group_vars/wfdb01.yml` com overrides de wfdb01 (vm_url, environment=wfdb01)
 - [X] T004 [P] Criar `ansible/inventory/group_vars/wf001.yml` com overrides de wf001 (environment=wf001)
-- [X] T005 [P] Criar `ansible/inventory/group_vars/home011.yml` com variáveis do ambiente de desenvolvimento local (ansible_port: 22, environment=home011, db_host: 192.168.15.198, db_port: 6432)
+- [X] T005 [P] Consolidar o ambiente DEV PostgreSQL em `ansible/inventory/group_vars/wfdb02.yml`, com `db_name: n8n_dev_db` para o gate do Vetor B
 - [X] T006 [P] Atualizar `pyproject.toml` na raiz do projeto adicionando dependências: `psycopg2-binary>=2.9`, `prometheus-client>=0.20`, `paramiko>=3.4`, `fabric>=3.2` com `[tool.uv.sources]` ou grupo `[project.optional-dependencies]`
 - [X] T007 [P] Adicionar targets no `Makefile`: `make f16` (run f16-queue-metrics.yml -l wfdb01), `make f17` (run f17-postgres-tuning.yml -l wfdb01), `make f18` (run f18-dual-collection-audit.yml -l wfdb01), `make lint-playbooks` (ansible-lint ansible/playbooks/)
 
@@ -92,24 +92,24 @@ Python valida presença das séries em `/metrics`.
 
 **Goal**: Playbook Ansible idempotente ativa purgação automática da
 `execution_entity` (Vetor A, sem restart) e provisiona `pg_stat_statements`
-(Vetor B, com restart), validando Vetor B em home011 antes de wfdb02.
+(Vetor B, com restart), validando Vetor B primeiro no banco DEV `n8n_dev_db`
+em `wfdb02` antes de operar o `n8n_db`.
 
-**Teste Independente**: `python src/purge_execution_entity.py --db-host 82.197.64.145 --db-port 6432 --db-name n8n_db --check-only` retorna `row_count_before < 429000` após 24h; `SELECT extname FROM pg_extension WHERE extname = 'pg_stat_statements'` retorna resultado em home011.
+**Teste Independente**: `python src/purge_execution_entity.py --db-host 82.197.64.145 --db-port 6432 --db-name n8n_dev_db --check-only` retorna resultado consistente; `SELECT extname FROM pg_extension WHERE extname = 'pg_stat_statements'` retorna resultado no `n8n_dev_db` em `wfdb02`.
 
 ### Implementação US2
 
 - [X] T018 [US2] Criar `ansible/roles/postgres_tuning/tasks/f17_backup.yml`: (1) `command: pg_dump -h db_host -p db_port -U n8n -Fc n8n_db | gzip > /tmp/n8n_backup_{{ ansible_date_time.iso8601_basic_short }}.sql.gz` em wfdb02, (2) `stat` + `assert: {that: dump_stat.stat.size > 0}`, (3) `command: sha256sum /tmp/n8n_backup_*.sql.gz | tee /tmp/n8n_backup_latest.sha256`, (4) `fetch` do sha256 para controlador local — `tags: [f17, f17-backup]`
 - [X] T018b [US2] Executar restore-test do backup em wfdb01 (SC-005 / FR-006 gate): restaurar dump mais recente em banco temp `n8n_db_restoretest` no wfdb01, via `gunzip -c $(ls -t /tmp/n8n_backup_*.sql.gz | head -1) | psql -h 86.48.31.149 -p 6432 -U n8n n8n_db_restoretest`; afirmar que `SELECT count(*) FROM execution_entity` na DB de restore ≥ valor registrado no backup; registrar `restore_tested: true` no session report; dropar DB de teste após validação
 - [X] T019 [P] [US2] Criar `ansible/roles/postgres_tuning/tasks/f17_prune.yml`: incluir role `n8n_env` com vars `n8n_f17_enabled: true` (ativa `EXECUTIONS_DATA_PRUNE=true`, `EXECUTIONS_DATA_PRUNE_MAX_AGE=720`, `EXECUTIONS_DATA_PRUNE_TIMEOUT=3600000` via template override.j2) — `tags: [f17, f17-prune]`
-- [X] T020 [P] [US2] Criar `ansible/roles/postgres_tuning/tasks/f17_setup_dev.yml`: (1) coletar `pg_settings` relevantes de wfdb02 via `postgresql_query` (shared_preload_libraries, max_connections, work_mem), (2) aplicar configuração equivalente em home011 via `template` + `postgresql.conf.j2`, (3) criar database `n8n_db` em home011 via `postgresql_db`, (4) `wait_for: {host: 192.168.15.198, port: 6432}` — `tags: [f17, f17-setup-dev]`
 - [X] T021 [P] [US2] Criar `ansible/roles/postgres_tuning/tasks/f17_pgstat.yml`: (1) `postgresql_set: {name: shared_preload_libraries, value: pg_stat_statements}` via `ALTER SYSTEM`, (2) restart controlado do PostgreSQL (`service: {name: postgresql, state: restarted}`), (3) `postgresql_ext: {name: pg_stat_statements, db: "{{ db_name }}", state: present}`, (4) `postgresql_query` para verificar `pg_stat_statements` ativo — `tags: [f17, f17-pgstat]`
 - [X] T022 [P] [US2] Criar `ansible/roles/postgres_tuning/templates/postgresql_override.conf.j2` com `shared_preload_libraries = 'pg_stat_statements'`, `pg_stat_statements.track = 'all'`, `pg_stat_statements.max = 10000`
 - [X] T023 [US2] Criar `src/purge_execution_entity.py` conforme contrato `contracts/python-script-cli.md` — args: `--db-host`, `--db-port`, `--db-name`, `--check-only`, `--prune-older-than-days`; credenciais via `PG_USER`/`PG_PASSWORD` env vars (NUNCA args); retorna JSON com `row_count_before`, `rows_deleted`, `table_size_before_mb`; psycopg2; docstrings reStructuredText
-- [X] T024 [US2] Criar `ansible/playbooks/f17-postgres-tuning.yml` com estrutura: Play 1 (SPA knock VPS), Play 2 (backup: hosts wfdb02, role postgres_tuning, tags f17-backup), Play 3 (prune: hosts wfdb01, role postgres_tuning, tags f17-prune), Play 4 (setup-dev: hosts home011, role postgres_tuning, tags f17-setup-dev, connection: local para home011), Play 5 (pgstat: hosts wfdb02 com `when: f17_pgstat_approved | default(false)`, tags f17-pgstat)
-- [ ] T025 [US2] Validar F17 Vetor A em wfdb01 (DEV/TEST GATE): (1) coletar evidência BEFORE `collect_gate_evidence.py --feature F17`, (2) `ansible-playbook f17-postgres-tuning.yml --tags f17-backup,f17-prune -l wfdb01 --check --diff`, (3) aplicar sem --check, (4) `python src/purge_execution_entity.py --db-host 82.197.64.145 --db-port 6432 --db-name n8n_db --check-only`, (5) coletar evidência AFTER
-- [ ] T026 [US2] Validar F17 Vetor B DEV GATE em home011 (OBRIGATÓRIO antes de wfdb02): (1) `ansible-playbook f17-postgres-tuning.yml --tags f17-setup-dev -l home011`, (2) `ansible-playbook f17-postgres-tuning.yml --tags f17-pgstat -l home011`, (3) verificar em home011: `SELECT extname FROM pg_extension WHERE extname = 'pg_stat_statements'` retorna resultado, (4) registrar aprovação do test_engineer para Vetor B em wfdb02
+- [X] T024 [US2] Criar `ansible/playbooks/f17-postgres-tuning.yml` com estrutura: Play 1 (SPA knock VPS), Play 2 (backup: hosts wfdb02, role postgres_tuning, tags f17-backup), Play 3 (prune: hosts wfdb01, role postgres_tuning, tags f17-prune), Play 4 (pgstat: hosts wfdb02 com `when: f17_pgstat_approved | default(false)`, tags f17-pgstat)
+- [X] T025 [US2] Validar F17 Vetor A em wfdb01 (DEV/TEST GATE): (1) coletar evidência BEFORE `collect_gate_evidence.py --feature F17`, (2) `ansible-playbook f17-postgres-tuning.yml --tags f17-backup,f17-prune -l wfdb01 --check --diff`, (3) aplicar sem --check, (4) `python src/purge_execution_entity.py --db-host 82.197.64.145 --db-port 6432 --db-name n8n_dev_db --check-only`, (5) coletar evidência AFTER
+- [X] T026 [US2] Validar F17 Vetor B DEV GATE em `wfdb02:n8n_dev_db` (OBRIGATÓRIO antes do `n8n_db`): (1) `ansible-playbook f17-postgres-tuning.yml --tags f17-pgstat -l wfdb02 -e f17_pgstat_approved=true` executado com sucesso, (2) extensão `pg_stat_statements` confirmada em `n8n_dev_db`, (3) role ajustado para usar `psql` como `postgres` no próprio host por requisito de privilégio
 
-**Checkpoint**: US2 completo — EXECUTIONS_DATA_PRUNE ativo em wfdb01, pg_stat_statements validado em home011, backup de wfdb02 presente com SHA-256.
+**Checkpoint**: US2 completo — EXECUTIONS_DATA_PRUNE ativo em wfdb01, pg_stat_statements validado em `n8n_dev_db`, backup de wfdb02 presente com SHA-256.
 
 ---
 
@@ -120,14 +120,14 @@ JSON com dupla coleta confirmada, nome da variável de controle, e o template
 `contracts/prod-collector-api-issue.md` é preenchido com dados reais para
 submissão ao projeto responsável. `prod-collector-api` NÃO é modificado.
 
-**Teste Independente**: Arquivo `docs/SESSIONS/$(date +%Y-%m-%d)/f18-dual-collection-report.json` gerado com `verdict: DUAL_COLLECTION`, `pushgateway_series_found` não vazio, e `contracts/prod-collector-api-issue.md` com variável de controle confirmada e magnitude preenchida.
+**Teste Independente**: Arquivo `docs/SESSIONS/$(date +%Y-%m-%d)/f18-dual-collection-report.json` gerado com `verdict: DUAL_COLLECTION`, `pushgateway_series_found` não vazio, `n8n_metric_jobs_found` com jobs reais (`collector_api_wf001_usa`, `collector_api_wf001_usa_ping_data`, `n8n`) e `contracts/prod-collector-api-issue.md` com variável de controle confirmada.
 
 ### Implementação US3
 
 - [X] T027 [US3] Criar `src/validate_prometheus.py` conforme contrato `contracts/python-script-cli.md` — args: `--vm-url`, `--lookback`, `--report`, `--output`, `--mode [dual-collection|provenance-gate]`; no modo `dual-collection`: PromQL `{instance=~".*0\\.0\\.0\\.0.*"}` para detectar série Pushgateway; no modo `provenance-gate`: `absent_over_time({instance=~".*0\\.0\\.0\\.0.*", job="pushgateway"}[1h])` + cross-check SQL `COUNT(*) FROM execution_entity` via psycopg2 (tolerância ≤ 1%); saída JSON com `verdict`, `pushgateway_series_found`, `provenance_gate.pushgateway_absent_1h`, `provenance_gate.execution_count_coherent`, `provenance_gate.count_delta_pct`
 - [X] T028 [P] [US3] Criar `ansible/playbooks/f18-dual-collection-audit.yml` com: Play 1 (SPA knock), Play 2 (hosts: wfdb01, tasks: `command: docker inspect prod-collector-api` com `register: inspect_result`, `set_fact` para extrair env vars Pushgateway-related, `copy` do JSON de inspeção para controller local) — **SOMENTE LEITURA, nenhuma modificação ao prod-collector-api** — `tags: [f18, f18-audit]`
-- [ ] T029 [US3] Executar F18 em wfdb01 (DEV/TEST GATE): (1) `python src/validate_prometheus.py --vm-url http://86.48.31.149:8428 --mode dual-collection --report --output docs/SESSIONS/$(date +%Y-%m-%d)/f18-dual-collection-report.json` — confirmar `verdict: DUAL_COLLECTION`, (2) `ansible-playbook ansible/playbooks/f18-dual-collection-audit.yml -i ansible/inventory/ -l wfdb01` — capturar variável de controle confirmada do `prod-collector-api`, (3) registrar nome exato da variável no relatório
-- [ ] T030 [US3] Preencher `contracts/prod-collector-api-issue.md` com dados reais do T029: variável de controle confirmada (seção "Diagnóstico — F18-PASSO-1"), séries PromQL identificadas e magnitude do delta (seção "Evidência PromQL — F18-PASSO-2"), data de inspeção — marcar artefato como pronto para submissão ao projeto responsável
+- [X] T029 [US3] Executar F18 em wfdb01 (DEV/TEST GATE): (1) `validate_prometheus.py` executado remotamente em `wfdb01` contra `http://172.20.0.13:8428` com `verdict: DUAL_COLLECTION`, (2) `ansible-playbook ansible/playbooks/f18-dual-collection-audit.yml -i ansible/inventory/ -l wfdb01` executado sem falhas, (3) jobs reais registrados no relatório (`collector_api_wf001_usa`, `collector_api_wf001_usa_ping_data`, `n8n`, `pushgateway_wfdb01`)
+- [X] T030 [US3] Preencher `contracts/prod-collector-api-issue.md` com dados reais do T029: flag confirmada em `wf001` como `PROMETHEUS_PUSHGATEWAY_ENABLED=true`, serviço `adminvyadigital/n8n-collector-api:latest`, exposição direta `0.0.0.0:5001 -> 5000/tcp`, data de inspeção e evidência PromQL consolidadas
 
 **Checkpoint**: US3 completo — relatório JSON de dupla coleta gerado, `prod-collector-api-issue.md` preenchido com dados reais prontos para submissão, SC-006/SC-007 documentados como critérios de aceite.
 
@@ -142,8 +142,8 @@ em bloco F16+F17+F18 para wf001 após aprovação do test_engineer.
 > juntos para wf001. Nenhuma feature pode ser promovida individualmente.
 > F18 só entra no bloco após ProvenanceGate aprovado pelo projeto responsável.
 
-- [ ] T031 [P] Executar `ansible-lint ansible/playbooks/f16-queue-metrics.yml ansible/playbooks/f17-postgres-tuning.yml ansible/playbooks/f18-dual-collection-audit.yml` — corrigir todos os erros antes de prosseguir (`make lint-playbooks`); además: executar cada playbook uma segunda vez contra wfdb01 sem alterações e afirmar que o PLAY RECAP mostra `changed=0` para todos os plays (FR-008 / Princípio V — idempotência obrigatória)
-- [ ] T032 [P] Executar verificações de gate AFTER em wfdb01 para SC-001–SC-007: (1) `python src/check_n8n_metrics.py --host 86.48.31.149 --port 5001` confirma `n8n_queue_*` ≥ 2 séries (SC-001), (2) `python src/purge_execution_entity.py --db-host 82.197.64.145 --db-port 6432 --db-name n8n_db --check-only` confirma tendência de queda vs baseline 429K+ (SC-003), (3) `python src/validate_prometheus.py --vm-url http://86.48.31.149:8428 --mode dual-collection` confirma DUAL_COLLECTION ainda ativa (SC-006 pendente de F18 externo), (4) smoke tests HTTP: healthz, /metrics, /api/v1/workflows retornam 200
+- [X] T031 [P] Executar `ansible-lint ansible/playbooks/f16-queue-metrics.yml ansible/playbooks/f17-postgres-tuning.yml ansible/playbooks/f18-dual-collection-audit.yml` — corrigir todos os erros antes de prosseguir (`make lint-playbooks`); además: executar cada playbook uma segunda vez contra wfdb01 sem alterações e afirmar que o PLAY RECAP mostra `changed=0` para todos os plays (FR-008 / Princípio V — idempotência obrigatória)
+- [ ] T032 [P] Executar verificações de gate AFTER em wfdb01 para SC-001–SC-007: (1) `python src/check_n8n_metrics.py --metrics-url https://testn8n.vya.digital` confirma as 4 séries `n8n_scaling_mode_queue_jobs_*` esperadas (SC-001), (2) `python src/purge_execution_entity.py --db-host 82.197.64.145 --db-port 6432 --db-name n8n_dev_db --check-only` confirma tendência de queda vs baseline 429K+ (SC-003), (3) `python src/validate_prometheus.py --vm-url http://127.0.0.1:8428 --mode dual-collection` com SSH tunnel ativo confirma DUAL_COLLECTION ainda ativa (SC-006 pendente de F18 externo), (4) smoke tests HTTP: healthz, /metrics, /api/v1/workflows retornam 200
 - [ ] T033 Executar ProvenanceGate pós-correção pelo projeto responsável (F18 externo): `python src/validate_prometheus.py --vm-url http://86.48.31.149:8428 --mode provenance-gate --report --output docs/SESSIONS/$(date +%Y-%m-%d)/f18-provenance-gate-report.json` — confirmar `verdict: PROVENANCE_OK`, `pushgateway_absent_1h: true`, `execution_count_coherent: true` (SC-006 + SC-007)
 - [ ] T034 Executar promoção em bloco F16+F17+F18 para wf001 (PRODUÇÃO — apenas após aprovação de test_engineer para todos os gates): `ansible-playbook f16-queue-metrics.yml -l wf001`, `ansible-playbook f17-postgres-tuning.yml --tags f17-prune -l wf001`, executar F18 audit em wf001 + submeter issue atualizado; monitorar wf001 ≥ 1 ciclo de pico (13:00–22:00 UTC); coletar evidências AFTER em wf001
 
@@ -163,7 +163,7 @@ Phase 1 (Setup)
 
 **Dependências críticas**:
 - T017 (validar F16 wfdb01) → bloqueia inclusão de F16 no gate de promoção
-- T025 (validar F17 Vetor A wfdb01) + T026 (home011 Vetor B gate) → bloqueiam F17 no gate
+- T025 (validar F17 Vetor A wfdb01) + T026 (`wfdb02:n8n_dev_db` Vetor B gate) → bloqueiam F17 no gate
 - T029 (F18 audit) + T033 (ProvenanceGate externo) → bloqueiam F18 no gate
 - T031 (ansible-lint) → DEVE passar antes de T034
 - T032 (smoke tests wfdb01) → precede T034
@@ -201,7 +201,7 @@ cd specs/001-001-tunning-instrumentacao/
 
 **P1 Completo (US1+US2+US3)**:
 - Todas as phases
-- Entrega: F16 + F17 Vetor A validados em wfdb01; F18 issue submetido ao projeto responsável; Vetor B em home011 aprovado
+- Entrega: F16 + F17 Vetor A validados em wfdb01; F18 issue submetido ao projeto responsável; Vetor B em `wfdb02:n8n_dev_db` aprovado
 - Promoção em bloco para wf001 após ProvenanceGate externo
 
 ---

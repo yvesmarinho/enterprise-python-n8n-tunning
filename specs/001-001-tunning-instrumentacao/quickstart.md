@@ -72,28 +72,22 @@ ansible-playbook ansible/playbooks/f17-postgres-tuning.yml \
 ansible-playbook ansible/playbooks/f17-postgres-tuning.yml \
   --tags f17-prune -l wfdb01 -i ansible/inventory/
 
-# PARTE C1: Preparar home011 para validação de Vetor B (DEV — OBRIGATÓRIO ANTES DE wfdb02)
-# Coletar config do PostgreSQL de wfdb02 e provisionar ambiente equivalente em home011
+# PARTE C1: Validar pg_stat_statements em n8n_dev_db (DEV — OBRIGATÓRIO ANTES DE n8n_db)
+# ⚠️ O ambiente DEV de PostgreSQL agora é o banco n8n_dev_db no próprio wfdb02
 ansible-playbook ansible/playbooks/f17-postgres-tuning.yml \
-  --tags f17-setup-dev -i ansible/inventory/
-# Verificar:
-python src/purge_execution_entity.py \
-  --db-host 192.168.15.198 --db-port 6432 --db-name n8n_db --check-only
+  --tags f17-pgstat -l wfdb02 -i ansible/inventory/ \
+  -e f17_pgstat_approved=true
 
-# PARTE C2: Validar pg_stat_statements em home011 (DEV — gate obrigatório para Vetor B)
-# ⚠️ NUNCA aplicar Vetor B em wfdb02 sem home011 validado e aprovado pelo test_engineer
-ansible-playbook ansible/playbooks/f17-postgres-tuning.yml \
-  --tags f17-pgstat -l home011 -i ansible/inventory/
-
-# PARTE C3: pg_stat_statements em wfdb02 (PRODUÇÃO — SÓ APÓS home011 aprovado)
-# Requer: (1) home011 validado, (2) janela de manutenção aprovada pelo project-manager
-ansible-playbook ansible/playbooks/f17-postgres-tuning.yml \
-  --tags f17-pgstat -l wfdb02 -i ansible/inventory/
-
-# Verificar contagem de execution_entity
+# Verificar contagem e acesso no banco DEV
 python src/purge_execution_entity.py \
   --db-host 82.197.64.145 --db-port 6432 \
-  --db-name n8n_db_db --check-only
+  --db-name n8n_dev_db --check-only
+
+# PARTE C2: Operações posteriores em n8n_db (produção lógica)
+# Requer: validação prévia em n8n_dev_db + janela aprovada pelo project-manager
+python src/purge_execution_entity.py \
+  --db-host 82.197.64.145 --db-port 6432 \
+  --db-name n8n_db --check-only
 ```
 
 ### Fase 4: F18 — Diagnóstico de Dupla Coleta e Geração de Change Request
