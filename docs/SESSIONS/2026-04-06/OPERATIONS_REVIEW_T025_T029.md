@@ -10,6 +10,12 @@
 
 Transformar os bloqueios atuais de T025 e T029 em um plano de execução objetivo, com parâmetros já reconciliados com o estado real do repositório.
 
+### Diretriz de escopo de banco (vigente)
+
+- O PostgreSQL de `wfdb01` e exclusivo do stack Prometheus/observabilidade.
+- Nao existem bases de dados de outras aplicacoes nesse PostgreSQL local de `wfdb01`.
+- Toda analise de desempenho de banco relacionada ao N8N deve ocorrer em `wfdb02` (DEV: `n8n_dev_db`; PROD: `n8n_db`).
+
 ---
 
 ## 2. T025 — F17 Vetor A (`EXECUTIONS_DATA_PRUNE`)
@@ -189,3 +195,68 @@ A execução de T025 em `wfdb01` foi validada com sucesso. O gate T029 também j
 1. Corrigir conectividade/rota para endpoint VM de validação do T033 (ou executar ProvenanceGate diretamente no host com endpoint interno válido).
 2. Reexecutar T033 e exigir `PROVENANCE_OK`.
 3. Somente após isso, abrir janela e executar T034 em `wf001` com monitoramento pós-promoção.
+
+---
+
+## 7. Execução Dependente do Inventário (Hardening + Revalidação)
+
+### 7.1 Hardening aplicado em `wfdb01` (runtime)
+
+- Cadeia `DOCKER-USER` estava vazia, confirmando ausência de contenção para portas publicadas via Docker.
+- Foram aplicadas regras de bloqueio externo por interface `eth0`:
+	- `DROP tcp dport 9091`
+	- `DROP tcp dport 9090`
+- Validação externa após aplicação:
+	- `86.48.31.149:9090` -> `CLOSED`
+	- `86.48.31.149:9091` -> `CLOSED`
+	- `86.48.31.149:80` -> `OPEN`
+	- `86.48.31.149:443` -> `OPEN`
+
+### 7.2 Persistência das regras
+
+- `netfilter-persistent` ausente em `wfdb01`
+- `/etc/iptables` ausente em `wfdb01`
+- Conclusão: regras atuais são **runtime** e podem se perder em reboot/reload.
+
+### 7.3 Revalidação T033 no endpoint correto
+
+- ProvenanceGate reexecutado **no próprio `wfdb01`** com VM interno `http://172.20.0.13:8428` e credenciais DB lidas de `/opt/docker_user/n8n/.env`.
+- Nota: essas credenciais no `.env` do N8N em `wfdb01` apontam para o banco do N8N em `wfdb02`.
+- Resultado atualizado:
+	- `verdict: PROVENANCE_FAIL`
+	- `pushgateway_absent_1h: false`
+	- `error: null` (sem falha de conectividade)
+
+### 7.4 Estado de T034
+
+- Permanece bloqueado: o gate agora falha por condição funcional real (pushgateway ainda ativo), não mais por problema de rota/conectividade.
+
+### 7.5 Nova execução de T033 (status atual)
+
+- Reexecução em `2026-04-06T15:04:46Z` no `wfdb01`, com endpoint interno `http://172.20.0.13:8428`.
+- Resultado mantido:
+	- `verdict: PROVENANCE_FAIL`
+	- `pushgateway_absent_1h: false`
+	- `error: null`
+- Observação operacional:
+	- O script indicou ausência de `psycopg2` no host remoto (`cross-check PostgreSQL ignorado`), então a componente de coerência DB permanece não validada no host.
+
+### 7.6 Execução de T034 (tentativa na sessão)
+
+- Foi executada a parte segura/read-only de auditoria F18 via playbook:
+	- `ansible-playbook ansible/playbooks/f18-dual-collection-audit.yml -i ansible/inventory/ -l wf001`
+- Resultado:
+	- `no hosts matched` (playbook está parametrizado para `wfdb01` nesta versão)
+- Decisão aplicada:
+	- Promoção em bloco para `wf001` **não executada** nesta sessão por gate T033 reprovado e por regra P0 do projeto.
+
+### 7.7 Ação externa formalizada (enterprise-observability)
+
+- Issue criada para correção da dupla coleta no repositório de observabilidade:
+	- https://github.com/admin-vya-digital/enterprise-observability/issues/15
+- Título:
+	- `Fix: remover dupla coleta de métricas N8N via Pushgateway (ProvenanceGate FAIL)`
+- Escopo solicitado na issue:
+	- desabilitar caminho duplicado via Pushgateway para métricas N8N
+	- validar `pushgateway_absent_1h=true`
+	- alcançar `PROVENANCE_OK` como critério de fechamento

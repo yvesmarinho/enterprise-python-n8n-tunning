@@ -10,6 +10,10 @@
 > no ambiente de desenvolvimento (`wfdb01` para N8N e `wfdb02:n8n_dev_db` para PostgreSQL) antes de iniciar qualquer
 > atualização no ambiente de produção (wf001 / wfdb02). Esta regra é inviolável
 > e se aplica a cada fase de cada feature.
+>
+> ⚠️ **FRONTEIRA DE BANCO**: O PostgreSQL local de `wfdb01` é exclusivo do stack
+> Prometheus/observabilidade. Toda análise de desempenho de banco do N8N (restore,
+> purgação, `pg_stat_statements`) deve ocorrer somente em `wfdb02`.
 
 ---
 
@@ -100,7 +104,7 @@ em `wfdb02` antes de operar o `n8n_db`.
 ### Implementação US2
 
 - [X] T018 [US2] Criar `ansible/roles/postgres_tuning/tasks/f17_backup.yml`: (1) `command: pg_dump -h db_host -p db_port -U n8n -Fc n8n_db | gzip > /tmp/n8n_backup_{{ ansible_date_time.iso8601_basic_short }}.sql.gz` em wfdb02, (2) `stat` + `assert: {that: dump_stat.stat.size > 0}`, (3) `command: sha256sum /tmp/n8n_backup_*.sql.gz | tee /tmp/n8n_backup_latest.sha256`, (4) `fetch` do sha256 para controlador local — `tags: [f17, f17-backup]`
-- [X] T018b [US2] Executar restore-test do backup em wfdb01 (SC-005 / FR-006 gate): restaurar dump mais recente em banco temp `n8n_db_restoretest` no wfdb01, via `gunzip -c $(ls -t /tmp/n8n_backup_*.sql.gz | head -1) | psql -h 86.48.31.149 -p 6432 -U n8n n8n_db_restoretest`; afirmar que `SELECT count(*) FROM execution_entity` na DB de restore ≥ valor registrado no backup; registrar `restore_tested: true` no session report; dropar DB de teste após validação
+- [X] T018b [US2] Executar restore-test do backup em wfdb02 (SC-005 / FR-006 gate): restaurar dump mais recente em banco temp `n8n_db_restoretest` no wfdb02, via `gunzip -c $(ls -t /tmp/n8n_backup_*.sql.gz | head -1) | psql -h 82.197.64.145 -p 6432 -U n8n_user n8n_db_restoretest`; afirmar que `SELECT count(*) FROM execution_entity` na DB de restore ≥ valor registrado no backup; registrar `restore_tested: true` no session report; dropar DB de teste após validação
 - [X] T019 [P] [US2] Criar `ansible/roles/postgres_tuning/tasks/f17_prune.yml`: incluir role `n8n_env` com vars `n8n_f17_enabled: true` (ativa `EXECUTIONS_DATA_PRUNE=true`, `EXECUTIONS_DATA_PRUNE_MAX_AGE=720`, `EXECUTIONS_DATA_PRUNE_TIMEOUT=3600000` via template override.j2) — `tags: [f17, f17-prune]`
 - [X] T021 [P] [US2] Criar `ansible/roles/postgres_tuning/tasks/f17_pgstat.yml`: (1) `postgresql_set: {name: shared_preload_libraries, value: pg_stat_statements}` via `ALTER SYSTEM`, (2) restart controlado do PostgreSQL (`service: {name: postgresql, state: restarted}`), (3) `postgresql_ext: {name: pg_stat_statements, db: "{{ db_name }}", state: present}`, (4) `postgresql_query` para verificar `pg_stat_statements` ativo — `tags: [f17, f17-pgstat]`
 - [X] T022 [P] [US2] Criar `ansible/roles/postgres_tuning/templates/postgresql_override.conf.j2` com `shared_preload_libraries = 'pg_stat_statements'`, `pg_stat_statements.track = 'all'`, `pg_stat_statements.max = 10000`

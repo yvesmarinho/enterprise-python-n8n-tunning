@@ -62,7 +62,7 @@ resultado. O story é completo quando políticas de retenção estão ativas.
    com manutenção agendada, **Then** `pg_stat_statements` retorna queries
    monitoradas com `total_exec_time`, `calls` e `mean_exec_time`.
 3. **Given** backup `pg_dump` validado em wfdb02 antes da purgação, **When** a
-   operação de purga é executada, **Then** o restore-test em wfdb01 replica os
+  operação de purga é executada, **Then** o restore-test em wfdb02 replica os
    dados sem inconsistências.
 
 ---
@@ -189,7 +189,7 @@ para a correção.
 - **SC-004 (F17)**: ≥ 10 queries mais lentas do N8N identificadas e documentadas
   via `pg_stat_statements` no SESSION_REPORT.
 - **SC-005 (F17)**: Backup `pg_dump` de wfdb02 concluído, tamanho > 0 e
-  restore-test bem-sucedido em wfdb01.
+  restore-test bem-sucedido em wfdb02.
 - **SC-006 (F18)**: Série `{instance=~".*0.0.0.0.*", job="pushgateway"}` não
   registra novos pontos por ≥ 1 hora após aplicação.
 - **SC-007 (F18)**: Contagens de `n8n_workflow_executions_total` coerentes com
@@ -205,6 +205,8 @@ para a correção.
   wfdb01, wf001 e wfdb02.
 - O banco de dados N8N reside exclusivamente em wfdb02 (82.197.64.145:6432) —
   wf001 é apenas o servidor de aplicação. **Nome do banco confirmado: `n8n_db`.**
+- O PostgreSQL local de wfdb01 é exclusivo do stack Prometheus/observabilidade
+  e não deve ser usado como alvo de análise de desempenho de banco do N8N.
 - PostgreSQL de desenvolvimento para validação de Vetor B (pg_stat_statements)
   de F17: banco `n8n_dev_db` em `wfdb02` (82.197.64.145:6432). Toda validação de
   Vetor B DEVE ocorrer primeiro nesse banco DEV antes de qualquer operação no

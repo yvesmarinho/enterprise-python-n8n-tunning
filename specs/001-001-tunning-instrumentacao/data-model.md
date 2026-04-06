@@ -57,7 +57,7 @@ executada na database do N8N (banco: **`n8n_db`** — confirmado).
 | `dump_size_bytes` | Tamanho do dump (validação: > 0) |
 | `dump_sha256` | Hash SHA-256 para verificação de integridade |
 | `dump_timestamp` | Timestamp ISO 8601 |
-| `restore_tested` | `true/false` — restore bem-sucedido em wfdb01 |
+| `restore_tested` | `true/false` — restore bem-sucedido em wfdb02 |
 
 ---
 
@@ -157,7 +157,7 @@ pg_stat_statements:
   → [CREATE EXTENSION] → monitoring_active
 
 BackupSnapshot:
-  pending → [pg_dump wfdb02] → dumped → [restore test wfdb01] → validated
+  pending → [pg_dump wfdb02] → dumped → [restore test wfdb02] → validated
 ```
 
 ### F18: Correção Dupla Coleta

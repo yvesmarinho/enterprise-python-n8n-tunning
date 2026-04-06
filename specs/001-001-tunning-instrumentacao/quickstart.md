@@ -6,6 +6,11 @@
 
 ## Pré-requisitos
 
+> ⚠️ **Fronteira de banco (obrigatória)**:
+> O PostgreSQL local de `wfdb01` é exclusivo da observabilidade (Prometheus/Grafana stack).
+> Toda análise de desempenho de banco do N8N deve ser executada somente em `wfdb02`
+> (`n8n_dev_db` para DEV gate e `n8n_db` para PROD).
+
 ```bash
 # 1. Ambiente Python local (uv)
 cd /home/yves_marinho/Documentos/DevOps/Vya-Jobs/enterprise-python-n8n-tunning

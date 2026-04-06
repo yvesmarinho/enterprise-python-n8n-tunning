@@ -23,6 +23,7 @@ SSH SPA (fwknop) para acesso seguro. Gate obrigatório em wfdb01 antes de wf001.
 **Language/Version**: Python 3.11 (uv, Fabric pattern, reStructuredText docstrings, Doctest)
 **Primary Dependencies**: Ansible 2.15+, ansible-lint, Fabric/Paramiko, psycopg2-binary, prometheus-client
 **Storage**: PostgreSQL 16 (wfdb02 — 82.197.64.145:6432; Pgbouncer pooler :5432); N8N Docker volumes em `/opt/docker_user/n8n`
+**DB Boundary**: PostgreSQL local de wfdb01 é exclusivo do stack Prometheus/observabilidade; análises de desempenho de banco do N8N devem ocorrer somente em wfdb02 (`n8n_dev_db`/`n8n_db`)
 **Testing**: pytest (Python), ansible-lint (playbooks), curl/HTTP checks (smoke tests)
 **Target Platform**: Debian 12 — wfdb01 (86.48.31.149, test+monitoring), wf001 (31.220.103.208, prod N8N), wfdb02 (82.197.64.145, prod DB)
 **Project Type**: DevOps automation — Ansible playbooks + Python diagnostic scripts
