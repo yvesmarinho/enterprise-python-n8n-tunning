@@ -1,0 +1,11 @@
+{
+  "mode": "provenance-gate",
+  "checked_at": "2026-04-08T12:57:10.698273+00:00",
+  "verdict": "PROVENANCE_FAIL",
+  "provenance_gate": {
+    "pushgateway_absent_1h": false,
+    "execution_count_coherent": false,
+    "count_delta_pct": null
+  },
+  "error": "<urlopen error [Errno 111] Connection refused>"
+}

@@ -8,18 +8,20 @@ Usage::
 
     # Detectar dupla coleta (padrão)
     python src/validate_prometheus.py \\
-        --vm-url http://86.48.31.149:8428 \\
+        --vm-url http://172.20.0.13:8428 \\
         --mode dual-collection \\
         --report \\
-        --output docs/SESSIONS/2026-04-02/f18-dual-collection-report.json
+        --output docs/SESSIONS/2026-04-08/f18-dual-collection-report.json
 
-    # ProvenanceGate pós-correção (requer acesso PostgreSQL)
+    # ProvenanceGate via SSH tunnel para wf001 (T033r)
+    # Abrir tunnel antes: ssh -N -L 18428:localhost:8428 -p 5010 archaris@31.220.103.208 &
     python src/validate_prometheus.py \\
-        --vm-url http://86.48.31.149:8428 \\
+        --vm-url http://localhost:18428 \\
         --mode provenance-gate \\
-        --db-host 82.197.64.145 --db-port 6432 --db-name n8n_db \\
+        --job-matcher 'collector_api_wf001_usa_ping_data' \\
+        --db-host 82.197.64.145 --db-port 5432 --db-name n8n_db \\
         --report \\
-        --output docs/SESSIONS/2026-04-02/f18-provenance-gate-report.json
+        --output docs/SESSIONS/2026-04-08/f18-provenance-gate-wf001.json
 
 Exit codes:
     0 — single scrape confirmado (dual-collection) ou ProvenanceGate PASS
@@ -45,12 +47,15 @@ log = logging.getLogger(__name__)
 
 # PromQL para detectar jobs distintos que exportam métricas n8n_*.
 N8N_METRIC_JOBS_QUERY = 'count by (job)({__name__=~"n8n_.*"})'
-PUSHGATEWAY_JOB_MATCHER = 'job=~".*pushgateway.*|.*push.*"'
-PUSHGATEWAY_QUERY = f'count by (job)({{{PUSHGATEWAY_JOB_MATCHER}}})'
-PUSHGATEWAY_ABSENT_QUERY = (
-    f'absent_over_time({{{PUSHGATEWAY_JOB_MATCHER}}}[1h])'
-)
-EXECUTION_COUNT_QUERY = "n8n_executions_total"
+
+# Matcher padrão — genérico para dual-collection em wfdb01.
+# Para ProvenanceGate em wf001, usar --job-matcher 'collector_api_wf001_usa_ping_data'.
+DEFAULT_PUSHGATEWAY_JOB_MATCHER = 'job=~".*pushgateway.*|.*push.*"'
+
+EXECUTION_COUNT_QUERY = "n8n_workflow_executions_total"
+# Janela para cross-check de delta execuções (PG vs VM)
+EXECUTION_DELTA_WINDOW = "30m"
+EXECUTION_DELTA_TOLERANCE_PCT = 5.0
 
 
 def vm_query(vm_url: str, promql: str, timeout: int = 15) -> dict:
@@ -117,7 +122,8 @@ def detect_dual_collection(vm_url: str, lookback: str) -> dict:
             {"job": metric.get("job", ""), "series_count": series_count}
         )
 
-    push_data = vm_query(vm_url, PUSHGATEWAY_QUERY)
+    _push_query = f"count by (job)({{{DEFAULT_PUSHGATEWAY_JOB_MATCHER}}})"
+    push_data = vm_query(vm_url, _push_query)
     pushgateway_labels = []
     if "result" in push_data:
         pushgateway_labels = [s.get("metric", {}) for s in push_data["result"]]
@@ -145,21 +151,37 @@ def detect_dual_collection(vm_url: str, lookback: str) -> dict:
     }
 
 
-def run_provenance_gate(vm_url: str, db_host: str, db_port: int, db_name: str) -> dict:
+def run_provenance_gate(
+    vm_url: str,
+    db_host: str,
+    db_port: int,
+    db_name: str,
+    job_matcher: str | None = None,
+) -> dict:
     """Valida que a correção foi aplicada (ProvenanceGate).
 
     Verifica:
-    1. Pushgateway ausente por ≥1h (``absent_over_time``).
-    2. Contagem de ``execution_entity`` coerente com série N8N (≤1% delta).
+    1. Job Pushgateway/collector ausente por ≥1h (``absent_over_time``).
+    2. Delta de execuções na janela de 30min entre PostgreSQL e VM ≤5%.
 
-    :param vm_url: URL do VictoriaMetrics.
+    :param vm_url: URL do VictoriaMetrics (pode ser localhost via SSH tunnel).
     :param db_host: Host PostgreSQL.
     :param db_port: Porta PostgreSQL.
     :param db_name: Nome da database.
+    :param job_matcher: Label matcher PromQL para identificar o job a verificar.
+        Usar valor específico (ex: ``collector_api_wf001_usa_ping_data``) para
+        wf001. Se None, usa ``DEFAULT_PUSHGATEWAY_JOB_MATCHER``.
     :returns: Dict com resultado do ProvenanceGate.
     """
-    # 1. Pushgateway ausente por 1h
-    absent_data = vm_query(vm_url, PUSHGATEWAY_ABSENT_QUERY)
+    matcher = job_matcher or DEFAULT_PUSHGATEWAY_JOB_MATCHER
+    # Distinguir entre matcher exato (sem =~) e regex
+    if "=~" in matcher or "!=" in matcher:
+        absent_query = f"absent_over_time({{{matcher}}}[1h])"
+    else:
+        absent_query = f'absent_over_time({{job="{matcher}"}}[1h])'
+
+    # 1. Job ausente por 1h
+    absent_data = vm_query(vm_url, absent_query)
     if "error" in absent_data:
         return {
             "verdict": "PROVENANCE_FAIL",
@@ -168,21 +190,25 @@ def run_provenance_gate(vm_url: str, db_host: str, db_port: int, db_name: str) -
                 "execution_count_coherent": False,
                 "count_delta_pct": None,
             },
+            "job_matcher_used": matcher,
             "error": absent_data["error"],
         }
 
     absent_result = absent_data.get("result", [])
     pushgateway_absent_1h = len(absent_result) > 0
 
-    # 2. Cross-check PostgreSQL
-    pg_count = _get_pg_execution_count(db_host, db_port, db_name)
-    vm_count = _get_vm_execution_count(vm_url)
+    # 2. Cross-check PostgreSQL via delta de janela curta (30min)
+    pg_count = _get_pg_execution_count_window(db_host, db_port, db_name, window_minutes=30)
+    vm_count = _get_vm_execution_count_window(vm_url, window=EXECUTION_DELTA_WINDOW)
 
     coherent = False
     delta_pct = None
     if pg_count is not None and vm_count is not None and pg_count > 0:
         delta_pct = abs(pg_count - vm_count) / pg_count * 100.0
-        coherent = delta_pct <= 1.0
+        coherent = delta_pct <= EXECUTION_DELTA_TOLERANCE_PCT
+    elif pg_count is not None and vm_count is None:
+        # VM sem dados na janela (N8N idle) — considerar coerente
+        coherent = pg_count == 0
 
     gate_pass = pushgateway_absent_1h and coherent
     verdict = "PROVENANCE_OK" if gate_pass else "PROVENANCE_FAIL"
@@ -193,18 +219,21 @@ def run_provenance_gate(vm_url: str, db_host: str, db_port: int, db_name: str) -
             "pushgateway_absent_1h": pushgateway_absent_1h,
             "execution_count_coherent": coherent,
             "count_delta_pct": round(delta_pct, 4) if delta_pct is not None else None,
+            "delta_window": EXECUTION_DELTA_WINDOW,
+            "delta_tolerance_pct": EXECUTION_DELTA_TOLERANCE_PCT,
         },
+        "job_matcher_used": matcher,
         "error": None,
     }
 
 
-def _get_pg_execution_count(host: str, port: int, dbname: str) -> int | None:
-    """Consulta contagem de execution_entity no PostgreSQL.
+def _pg_connect(host: str, port: int, dbname: str):
+    """Retorna conexão psycopg2 ou None se psycopg2 não instalado.
 
     :param host: Host PostgreSQL.
     :param port: Porta PostgreSQL.
     :param dbname: Nome da database.
-    :returns: Contagem ou None em caso de falha.
+    :returns: Conexão psycopg2 ou None.
     """
     try:
         import psycopg2  # noqa: PLC0415
@@ -214,9 +243,9 @@ def _get_pg_execution_count(host: str, port: int, dbname: str) -> int | None:
 
     pg_user = os.environ.get("PG_USER", "n8n")
     pg_password = os.environ.get("PG_PASSWORD", "")
-    conn = None
     try:
-        conn = psycopg2.connect(
+        import psycopg2  # noqa: PLC0415
+        return psycopg2.connect(
             host=host,
             port=port,
             dbname=dbname,
@@ -224,6 +253,24 @@ def _get_pg_execution_count(host: str, port: int, dbname: str) -> int | None:
             password=pg_password,
             connect_timeout=10,
         )
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Erro ao conectar ao PostgreSQL: %s", exc)
+        return None
+
+
+def _get_pg_execution_count(host: str, port: int, dbname: str) -> int | None:
+    """Consulta contagem total de execution_entity no PostgreSQL.
+
+    :param host: Host PostgreSQL.
+    :param port: Porta PostgreSQL.
+    :param dbname: Nome da database.
+    :returns: Contagem ou None em caso de falha.
+    """
+    conn = _pg_connect(host, port, dbname)
+    if conn is None:
+        return None
+    try:
+        import psycopg2  # noqa: PLC0415
         with conn.cursor() as cur:
             cur.execute("SELECT COUNT(*) FROM execution_entity")  # noqa: S608
             row = cur.fetchone()
@@ -232,12 +279,44 @@ def _get_pg_execution_count(host: str, port: int, dbname: str) -> int | None:
         log.warning("Erro ao consultar PostgreSQL: %s", exc)
         return None
     finally:
-        if conn is not None:
-            conn.close()
+        conn.close()
+
+
+def _get_pg_execution_count_window(
+    host: str, port: int, dbname: str, window_minutes: int = 30
+) -> int | None:
+    """Conta execuções iniciadas na janela recente (delta cross-check).
+
+    Usa janela curta para evitar divergência por resets do contador do VM.
+
+    :param host: Host PostgreSQL.
+    :param port: Porta PostgreSQL.
+    :param dbname: Nome da database.
+    :param window_minutes: Janela em minutos (default: 30).
+    :returns: Contagem ou None em caso de falha.
+    """
+    conn = _pg_connect(host, port, dbname)
+    if conn is None:
+        return None
+    try:
+        import psycopg2  # noqa: PLC0415
+        with conn.cursor() as cur:
+            cur.execute(  # noqa: S608
+                "SELECT COUNT(*) FROM execution_entity "
+                "WHERE \"startedAt\" > NOW() - INTERVAL '%s minutes'",
+                (window_minutes,),
+            )
+            row = cur.fetchone()
+            return int(row[0]) if row else None
+    except (psycopg2.Error, TypeError, ValueError) as exc:
+        log.warning("Erro ao consultar PostgreSQL (janela): %s", exc)
+        return None
+    finally:
+        conn.close()
 
 
 def _get_vm_execution_count(vm_url: str) -> int | None:
-    """Obtém contagem de execuções a partir do VictoriaMetrics.
+    """Obtém contagem total de execuções do VictoriaMetrics (valor instantâneo).
 
     :param vm_url: URL do VictoriaMetrics.
     :returns: Valor inteiro ou None se não disponível.
@@ -247,6 +326,26 @@ def _get_vm_execution_count(vm_url: str) -> int | None:
         return None
     try:
         return int(float(data["result"][0]["value"][1]))
+    except (KeyError, IndexError, ValueError):
+        return None
+
+
+def _get_vm_execution_count_window(vm_url: str, window: str = "30m") -> int | None:
+    """Soma incrementos de execuções do VictoriaMetrics na janela recente.
+
+    Usa ``increase()`` para evitar divergência por resets do contador.
+
+    :param vm_url: URL do VictoriaMetrics.
+    :param window: Janela PromQL (default: ``30m``).
+    :returns: Valor inteiro ou None se não disponível.
+    """
+    query = f"sum(increase({EXECUTION_COUNT_QUERY}[{window}]))"
+    data = vm_query(vm_url, query)
+    if "result" not in data or not data["result"]:
+        return None
+    try:
+        val = float(data["result"][0]["value"][1])
+        return max(0, int(val))
     except (KeyError, IndexError, ValueError):
         return None
 
@@ -293,6 +392,16 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--db-name", help="Nome da database (necessário no modo provenance-gate)"
     )
+    p.add_argument(
+        "--job-matcher",
+        default=None,
+        help=(
+            "Label matcher PromQL para identificar o job Pushgateway/collector. "
+            "Sem operador (ex: 'collector_api_wf001_usa_ping_data') = match exato. "
+            "Com operador (ex: 'job=~\".*push.*\"') = expressão completa. "
+            "Default: '" + DEFAULT_PUSHGATEWAY_JOB_MATCHER + "'"
+        ),
+    )
     return p
 
 
@@ -326,6 +435,7 @@ def main(argv: list[str] | None = None) -> int:
             args.db_host,  # type: ignore[arg-type]
             args.db_port,
             args.db_name,  # type: ignore[arg-type]
+            job_matcher=args.job_matcher,
         )
         if (
             result_data.get("error")

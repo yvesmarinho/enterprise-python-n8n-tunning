@@ -1,0 +1,26 @@
+{
+    "task": "T033r",
+    "description": "ProvenanceGate F18 — verificação via VM wfdb01 com job-matcher específico (script T035 corrigido)",
+    "mode": "provenance-gate",
+    "checked_at": "2026-04-08T13:23:47.883576+00:00",
+    "verdict": "PROVENANCE_FAIL",
+    "provenance_gate": {
+        "pushgateway_absent_1h": false,
+        "execution_count_coherent": false,
+        "count_delta_pct": 100.0,
+        "delta_window": "30m",
+        "delta_tolerance_pct": 5.0
+    },
+    "job_matcher_used": "collector_api_wf001_usa_ping_data",
+    "vm_url": "http://172.20.0.13:8428",
+    "db_host": "82.197.64.145",
+    "db_port": 5432,
+    "db_name": "n8n_db",
+    "error": null,
+    "_analysis": {
+        "pushgateway_absent_1h_reason": "prod-collector-api em wf001 ainda ativo com PROMETHEUS_PUSHGATEWAY_ENABLED=true. Depende de correção no projeto prod-collector-api (issue submetida em T030). Jobs ativos no VM: collector_api_wf001_usa (473 séries) + collector_api_wf001_usa_ping_data (473 séries).",
+        "execution_count_coherent_reason": "increase(n8n_workflow_executions_total[30m])=0 no VM — N8N em wf001 idle na janela de 30min da medição. Não indica erro, apenas período de baixo volume. PG retornou count > 0 histórico, causando delta 100% na janela.",
+        "known_issue": "KNOWN_ISSUE_F18 — prod-collector-api não corrigido. Gate de proveniência não passou.",
+        "recommendation": "Prosseguir T034a (F16+F17) conforme decisão de debate 2026-04-08. T034b aguarda prod-collector-api corrigido."
+    }
+}

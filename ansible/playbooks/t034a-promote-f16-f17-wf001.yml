@@ -1,0 +1,167 @@
+---
+# ansible/playbooks/t034a-promote-f16-f17-wf001.yml
+# T034a — Promoção F16 + F17 (Vetor A) para wf001 (PRODUÇÃO)
+#
+# PRÉ-REQUISITOS (todos devem estar ✅ antes de executar):
+#   T017 ✅  T025 ✅  T026 ✅  T031 ✅  T032 ✅  T036 ✅
+#   Janela de manutenção: Sábado 02h–04h UTC
+#   Backup PostgreSQL obrigatório ANTES (via tag f17-backup abaixo)
+#
+# Execução:
+#   ansible-playbook ansible/playbooks/t034a-promote-f16-f17-wf001.yml \
+#     -i ansible/inventory/ --check --diff     # dry-run primeiro
+#   ansible-playbook ansible/playbooks/t034a-promote-f16-f17-wf001.yml \
+#     -i ansible/inventory/                    # aplicar
+#
+# ⚠️  PRODUÇÃO — rollback: docker compose up -d com .env anterior (estimativa: 5 min)
+
+# --- Play 0: Rollback anchor (salvar estado atual antes de qualquer mudança) ---
+- name: "T034a | Rollback Anchor — Salvar estado atual de wf001"
+  hosts: wf001
+  become: false
+  gather_facts: false
+  tags:
+    - always
+    - t034a-anchor
+  tasks:
+    - name: Rollback anchor | Obter hash da imagem N8N atual
+      ansible.builtin.command:
+        cmd: docker inspect --format '{{ "{{" }}.Image{{ "}}" }}' n8n-n8n_editor-1
+      register: n8n_image_hash
+      changed_when: false
+      check_mode: false
+
+    - name: Rollback anchor | Registrar timestamp e imagem
+      ansible.builtin.copy:
+        content: |
+          # Rollback anchor — T034a promoção F16+F17 wf001
+          timestamp: {{ ansible_date_time.iso8601 | default('unknown') }}
+          n8n_image: {{ n8n_image_hash.stdout | default('unknown') }}
+          host: wf001.vya.digital
+          features: F16 (queue metrics) + F17 Vetor A (EXECUTIONS_DATA_PRUNE)
+        dest: /tmp/t034a-rollback-anchor.txt
+        mode: "0644"
+      changed_when: false
+      check_mode: false
+
+    - name: Rollback anchor | Exibir informação
+      ansible.builtin.debug:
+        msg: "Imagem atual wf001: {{ n8n_image_hash.stdout | default('unknown') }}"
+
+# --- Play 1: SPA Knock ---
+- name: "T034a | SPA Knock — wf001 + wfdb02"
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags:
+    - always
+  tasks:
+    - name: Knock SSH SPA — wf001
+      ansible.builtin.command:
+        cmd: fwknop --rc-file ~/.fwknoprc -n wf001
+      changed_when: true
+      check_mode: false
+
+    - name: Knock SSH SPA — wfdb02 (backup PostgreSQL)
+      ansible.builtin.command:
+        cmd: fwknop --rc-file ~/.fwknoprc -n wfdb02
+      changed_when: true
+      check_mode: false
+
+    - name: Pausa pós-knock
+      ansible.builtin.pause:
+        seconds: 3
+
+    - name: Wait for SSH 5010 — wf001
+      ansible.builtin.wait_for:
+        host: 31.220.103.208
+        port: 5010
+        timeout: 30
+      check_mode: false
+
+    - name: Wait for SSH 5010 — wfdb02
+      ansible.builtin.wait_for:
+        host: 82.197.64.145
+        port: 5010
+        timeout: 30
+      check_mode: false
+
+# --- Play 2: Backup pg_dump n8n_db (wfdb02) — OBRIGATÓRIO ---
+- name: "T034a | F17 Backup — pg_dump n8n_db (wfdb02)"
+  hosts: wfdb02
+  become: false
+  gather_facts: true
+  tags:
+    - t034a
+    - f17-backup
+  tasks:
+    - name: "F17 Backup | Executar pg_dump n8n_db via role"
+      ansible.builtin.import_role:
+        name: postgres_tuning
+        tasks_from: f17_backup.yml
+
+# --- Play 3: F16 — Habilitar métricas de fila em wf001 ---
+- name: "T034a | F16 — Queue Metrics (wf001 PRODUÇÃO)"
+  hosts: wf001
+  become: false
+  gather_facts: true
+  tags:
+    - t034a
+    - f16
+  vars:
+    n8n_f16_enabled: true
+    n8n_f17_enabled: false # F17 ativado separadamente no Play 4
+  roles:
+    - role: n8n_env
+
+# --- Play 4: F17 Vetor A — EXECUTIONS_DATA_PRUNE em wf001 ---
+- name: "T034a | F17 Vetor A — EXECUTIONS_DATA_PRUNE (wf001 PRODUÇÃO)"
+  hosts: wf001
+  become: false
+  gather_facts: true
+  tags:
+    - t034a
+    - f17-prune
+  vars:
+    n8n_f16_enabled: true # preserva F16 no override
+    n8n_f17_enabled: true
+  tasks:
+    - name: "F17 Prune | Aplicar EXECUTIONS_DATA_PRUNE via role"
+      ansible.builtin.import_role:
+        name: postgres_tuning
+        tasks_from: f17_prune.yml
+
+# --- Play 5: Verificação pós-aplicação ---
+- name: "T034a | Verificação AFTER — métricas e serviços wf001"
+  hosts: wf001
+  become: false
+  gather_facts: false
+  tags:
+    - t034a
+    - t034a-verify
+  tasks:
+    - name: AFTER | Verificar healthz N8N
+      ansible.builtin.uri:
+        url: "https://n8n.vya.digital/healthz"
+        status_code: 200
+        timeout: 15
+        validate_certs: true
+      retries: 6
+      delay: 10
+      register: healthz_check
+      until: healthz_check.status == 200
+
+    - name: AFTER | Verificar endpoint de métricas
+      ansible.builtin.uri:
+        url: "https://n8n.vya.digital/metrics"
+        status_code: 200
+        timeout: 10
+        validate_certs: true
+      register: metrics_check
+
+    - name: AFTER | Exibir resultado
+      ansible.builtin.debug:
+        msg:
+          - "healthz: {{ healthz_check.status }}"
+          - "metrics: {{ metrics_check.status }}"
+          - "T034a F16+F17 aplicados com sucesso em wf001"

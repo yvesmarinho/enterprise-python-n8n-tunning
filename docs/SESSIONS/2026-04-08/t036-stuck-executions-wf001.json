@@ -1,0 +1,16 @@
+{
+    "task": "T036",
+    "description": "Verificação de execuções presas em wf001 antes do prune F17",
+    "checked_at": "2026-04-08T13:20:04.549831+00:00",
+    "db_host": "82.197.64.145",
+    "db_port": 5432,
+    "db_name": "n8n_db",
+    "total_execution_entity": 5152,
+    "stuck_running_gt_30d": 0,
+    "oldest_stuck": null,
+    "running_recent_lt_30d": 3,
+    "top_stuck_workflows": [],
+    "safe_to_prune": true,
+    "verdict": "SAFE_TO_PRUNE",
+    "note": "Zero execuções com status=running e startedAt > 30 dias. 3 execuções recentes em andamento (normais). Prune F17 seguro para wf001."
+}

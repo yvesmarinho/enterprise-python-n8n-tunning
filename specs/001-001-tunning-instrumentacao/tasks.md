@@ -148,8 +148,11 @@ em bloco F16+F17+F18 para wf001 após aprovação do test_engineer.
 
 - [X] T031 [P] Executar `ansible-lint ansible/playbooks/f16-queue-metrics.yml ansible/playbooks/f17-postgres-tuning.yml ansible/playbooks/f18-dual-collection-audit.yml` — corrigir todos os erros antes de prosseguir (`make lint-playbooks`); además: executar cada playbook uma segunda vez contra wfdb01 sem alterações e afirmar que o PLAY RECAP mostra `changed=0` para todos os plays (FR-008 / Princípio V — idempotência obrigatória)
 - [X] T032 [P] Executar verificações de gate AFTER em wfdb01 para SC-001–SC-007: (1) `python src/check_n8n_metrics.py --metrics-url https://testn8n.vya.digital` confirma as 4 séries `n8n_scaling_mode_queue_jobs_*` esperadas (SC-001), (2) `python src/purge_execution_entity.py --db-host 82.197.64.145 --db-port 6432 --db-name n8n_dev_db --check-only` confirma tendência de queda vs baseline 429K+ (SC-003), (3) `python src/validate_prometheus.py --vm-url http://127.0.0.1:8428 --mode dual-collection` com SSH tunnel ativo confirma DUAL_COLLECTION ainda ativa (SC-006 pendente de F18 externo), (4) smoke tests HTTP: healthz, /metrics, /api/v1/workflows retornam 200
-- [ ] T033 Executar ProvenanceGate pós-correção pelo projeto responsável (F18 externo): `python src/validate_prometheus.py --vm-url http://86.48.31.149:8428 --mode provenance-gate --report --output docs/SESSIONS/$(date +%Y-%m-%d)/f18-provenance-gate-report.json` — confirmar `verdict: PROVENANCE_OK`, `pushgateway_absent_1h: true`, `execution_count_coherent: true` (SC-006 + SC-007)
-- [ ] T034 Executar promoção em bloco F16+F17+F18 para wf001 (PRODUÇÃO — apenas após aprovação de test_engineer para todos os gates): `ansible-playbook f16-queue-metrics.yml -l wf001`, `ansible-playbook f17-postgres-tuning.yml --tags f17-prune -l wf001`, executar F18 audit em wf001 + submeter issue atualizado; monitorar wf001 ≥ 1 ciclo de pico (13:00–22:00 UTC); coletar evidências AFTER em wf001
+- [ ] T033r Executar ProvenanceGate reescrito contra VictoriaMetrics de **wf001** via SSH tunnel (T033 ORIGINAL tinha erro de endereçamento — apontava para wfdb01 em vez de wf001): `ssh -N -L 18428:localhost:8428 -p 5010 archaris@31.220.103.208 &` e então `python src/validate_prometheus.py --vm-url http://localhost:18428 --mode provenance-gate --job-matcher 'collector_api_wf001_usa_ping_data' --db-host 82.197.64.145 --db-port 5432 --db-name n8n_db --report --output docs/SESSIONS/$(date +%Y-%m-%d)/f18-provenance-gate-wf001.json` — critério PASS: `pushgateway_absent_1h: true` (job `collector_api_wf001_usa_ping_data` ausente ≥1h no VM de wf001) + `execution_count_coherent: true` (delta janela 30min ≤5%); se FAIL por prod-collector-api ainda não corrigido → registrar como `KNOWN_ISSUE_F18` e prosseguir T034a
+- [ ] T034a Executar promoção F16+F17 para wf001 **desacoplada de F18** (decisão de debate 2026-04-08 — T034a/T034b ADR): pré-requisitos T017 ✅ + T025 ✅ + T026 ✅ + T031 ✅ + T032 ✅ + T036 ✅; janela: sábado 02h–04h UTC; salvar rollback anchor (`docker inspect n8n --format '{{.Image}}'` + env backup); `ansible-playbook f16-queue-metrics.yml -l wf001`; `ansible-playbook f17-postgres-tuning.yml --tags f17-backup,f17-prune -l wf001`; monitorar wf001 ≥ 1 ciclo de pico (13h–22h UTC); coletar evidências AFTER em wf001
+- [ ] T034b Executar promoção F18 para wf001 após T033r PASS: audit dual-collection em wf001 + submeter issue atualizado; apenas após `verdict: PROVENANCE_OK` ou aprovação explícita do project-manager com KNOWN_ISSUE registrado
+- [x] T035 Corrigir `src/validate_prometheus.py`: (1) `EXECUTION_COUNT_QUERY` corrigido para `n8n_workflow_executions_total`, (2) `--job-matcher` CLI flag adicionado, (3) `run_provenance_gate` aceita `job_matcher` parametrizável, (4) delta cross-check substituído por janela 30min com tolerância 5%, (5) `_get_pg_execution_count_window` e `_get_vm_execution_count_window` implementados (2026-04-08)
+- [x] T036 Verificar execuções presas em wf001 antes do prune F17 (pré-requisito T034a): `SELECT COUNT(*) FROM execution_entity WHERE status='running' AND startedAt < NOW()-INTERVAL '720 hours'` → `stuck_running_gt_30d: 0`, `safe_to_prune: true` (evidência: `docs/SESSIONS/2026-04-08/t036-stuck-executions-wf001.json`) (2026-04-08)
 
 ---
 
@@ -168,10 +171,12 @@ Phase 1 (Setup)
 **Dependências críticas**:
 - T017 (validar F16 wfdb01) → bloqueia inclusão de F16 no gate de promoção
 - T025 (validar F17 Vetor A wfdb01) + T026 (`wfdb02:n8n_dev_db` Vetor B gate) → bloqueiam F17 no gate
-- T029 (F18 audit) + T033 (ProvenanceGate externo) → bloqueiam F18 no gate
-- T031 (ansible-lint) → DEVE passar antes de T034
-- T032 (smoke tests wfdb01) → precede T034
-- **T034 (promoção wf001) depende de T017 + T025 + T026 + T029 + T031 + T032 + T033 todos aprovados**
+- T029 (F18 audit) + T033r (ProvenanceGate wf001 tunnel) → bloqueiam F18 no gate T034b
+- T031 (ansible-lint) → DEVE passar antes de T034a e T034b
+- T032 (smoke tests wfdb01) → precede T034a
+- T036 (execuções presas wf001) → precede T034a ✅ PASSOU (2026-04-08)
+- **T034a (promoção F16+F17 wf001) depende de T017 + T025 + T026 + T031 + T032 + T036 todos aprovados**
+- **T034b (promoção F18 wf001) depende de T034a + T033r aprovados**
 
 ---
 
@@ -219,7 +224,7 @@ cd specs/001-001-tunning-instrumentacao/
 | Phase 3: US1 (F16) | T012–T017 | 3/6 | US1 |
 | Phase 4: US2 (F17) | T018–T026 | 4/9 | US2 |
 | Phase 5: US3 (F18) | T027–T030 | 1/4 | US3 |
-| Phase 6: Polish | T031–T034 | 2/4 | — |
+| Phase 6: Polish | T031–T036 + T034a/T034b | T031 ✅ T032 ✅ T033r ⬜ T034a ⬜ T034b ⬜ T035 ✅ T036 ✅ | — |
 | **Total** | **36 tasks** | **18 paralelizáveis** | |
 
 **MVP (US1)**: 11 tasks (T001–T017 relevantes) — entrega independente e testável.
