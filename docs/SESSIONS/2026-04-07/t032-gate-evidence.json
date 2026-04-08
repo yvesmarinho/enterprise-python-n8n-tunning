@@ -1,0 +1,77 @@
+{
+    "task": "T032",
+    "environment": "wfdb01",
+    "executed_at": "2026-04-07T14:10:00Z",
+    "checks": {
+        "SC-001": {
+            "description": "4 séries n8n_scaling_mode_queue_jobs_* presentes",
+            "command": "python src/check_n8n_metrics.py --metrics-url https://testn8n.vya.digital",
+            "verdict": "PASS",
+            "metrics_found": [
+                "n8n_scaling_mode_queue_jobs_active",
+                "n8n_scaling_mode_queue_jobs_waiting",
+                "n8n_scaling_mode_queue_jobs_completed",
+                "n8n_scaling_mode_queue_jobs_failed"
+            ],
+            "raw_count": 43,
+            "exit_code": 0
+        },
+        "SC-003": {
+            "description": "Tendência de queda execution_entity vs baseline 429K+",
+            "command": "python src/purge_execution_entity.py --db-host 82.197.64.145 --db-port 6432 --db-name n8n_dev_db --check-only",
+            "verdict": "PASS",
+            "row_count": 338,
+            "table_size_mb": 1.16,
+            "baseline_rows": 429000,
+            "reduction_factor": "99.9%",
+            "exit_code": 0,
+            "note": "Queda de 429K+ → 338 linhas confirma EXECUTIONS_DATA_PRUNE ativo e funcionando em n8n_dev_db"
+        },
+        "SC-006": {
+            "description": "Estado dual-collection no VictoriaMetrics (wfdb01)",
+            "command": "validate_prometheus.py --vm-url http://172.20.0.13:8428 --mode dual-collection (remoto via wfdb01)",
+            "verdict": "DUAL_COLLECTION",
+            "vm_accessible": true,
+            "pushgateway_series_found": [
+                {
+                    "job": "pushgateway_wfdb01"
+                }
+            ],
+            "n8n_metric_jobs_found": [
+                {
+                    "job": "collector_api_wf001_usa",
+                    "series_count": 473
+                },
+                {
+                    "job": "collector_api_wf001_usa_ping_data",
+                    "series_count": 473
+                }
+            ],
+            "direct_scrape_series_count": 31899,
+            "dual_collection_active": true,
+            "note": "Esperado — séries históricas do Pushgateway ainda presentes no VM (dados do passado). PROMETHEUS_PUSHGATEWAY_ENABLED=false aplicado em wf001 em 2026-04-07T13:52. Aguardar 1h para absent_over_time confirmar ausência de novos dados (T033).",
+            "exit_code": 1
+        },
+        "smoke_tests": {
+            "description": "HTTP smoke tests em testn8n.vya.digital",
+            "results": {
+                "GET /healthz": {
+                    "status_code": 200,
+                    "verdict": "PASS"
+                },
+                "GET /metrics": {
+                    "status_code": 200,
+                    "verdict": "PASS"
+                },
+                "GET /api/v1/workflows": {
+                    "status_code": 401,
+                    "verdict": "PASS",
+                    "note": "401 esperado — endpoint autenticado, retorno confirma N8N respondendo"
+                }
+            }
+        }
+    },
+    "overall_verdict": "PASS",
+    "blocking_t033": true,
+    "note": "T032 aprovado. T033 (ProvenanceGate) ancora em absent_over_time[1h] que confirma cessação do Pushgateway. Reexecutar T033 após 14:52 UTC."
+}

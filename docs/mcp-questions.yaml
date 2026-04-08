@@ -15,7 +15,7 @@ metadata:
     - "docs/objetivo.yaml"
     - "docs/n8n_perf_ANA001_20260101_20260331_20260331T154646.md"
   generated_on: "2026-04-01"
-  last_updated: "2026-04-02"
+  last_updated: "2026-04-07"
 
 project_context:
   description: >
@@ -81,6 +81,10 @@ project_context:
           - "Ambiente de teste do N8N publicado neste servidor, pasta
             /opt/docker_user/n8n"
           - "Acesso via SSH SPA conforme .secrets/ssh.json"
+          - "VictoriaMetrics NAO publicado no host — acesso via IP interno do
+            container: 172.20.0.13:8428 (rede app-network Docker)"
+          - "enterprise-postgres neste host e exclusivo do stack de
+            observabilidade (Grafana/Loki) — banco N8N reside em wfdb02"
       - hostname: "wfdb02.vya.digital"
         ip: "82.197.64.145"
         role: "Servidor de Banco de dados de producao — hospeda o PostgreSQL e MySQL,
@@ -468,7 +472,9 @@ features_implemented:
 
   - id: "F16"
     name: "Habilitacao de metricas de fila do N8N"
-    status: "not-started"
+    status: "in-progress"
+    progress_note: "Gate T017 aprovado em wfdb01 (2026-04-02) — aguarda promocao em
+      bloco para wf001"
     scope:
       - "Ativar N8N_METRICS_INCLUDE_QUEUE_METRICS=true e
         QUEUE_HEALTH_CHECK_ACTIVE=true"
@@ -482,7 +488,9 @@ features_implemented:
 
   - id: "F17"
     name: "Purgacao e tunning do PostgreSQL do N8N"
-    status: "not-started"
+    status: "in-progress"
+    progress_note: "Gates T025+T026 aprovados em wfdb01/wfdb02 (2026-04-06) —
+      aguarda promocao em bloco para wf001"
     scope:
       - "Analisar tabela execution_entity com 429K+ execucoes acumuladas"
       - "Configurar EXECUTIONS_DATA_PRUNE=true com retencao de 30 dias"
@@ -496,7 +504,10 @@ features_implemented:
 
   - id: "F18"
     name: "Correcao de dupla coleta de metricas Prometheus"
-    status: "not-started"
+    status: "in-progress"
+    progress_note: "PROMETHEUS_PUSHGATEWAY_ENABLED=false aplicado em wf001 em
+      2026-04-07 — ProvenanceGate (T033) aguarda janela de 1h para confirmacao
+      absent_over_time"
     scope:
       - "Desabilitar PROMETHEUS_PUSHGATEWAY_ENABLED=true no prod-collector-api"
       - "Garantir que apenas o scrape direto (job=n8n, instance=wf001) permaneca
@@ -703,6 +714,12 @@ mcp_questions:
         correcao identificada em ANA-001"
       expected_answer_type: "boolean"
       feature_ref: "F18"
+      resolved: true
+      resolved_on: "2026-04-07"
+      resolved_answer: false
+      resolved_note: "PROMETHEUS_PUSHGATEWAY_ENABLED=false aplicado no
+        docker-compose.yml e container recreado em wf001. Verificado via docker
+        inspect em 2026-04-07T13:52"
 
     - id: "Q08"
       question: "Quais limites de desempenho sao aceitaveis pos-tunning? (ex: p95 <
