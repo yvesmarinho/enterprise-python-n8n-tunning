@@ -1,6 +1,6 @@
 # 📝 TODO — Enterprise Python N8n Tunning
 
-**Last Updated**: 2026-04-08 — T035 ✅ + T036 ✅ + T034a playbook criado, janela agendada
+**Last Updated**: 2026-04-30 — Análise de lentidão N8N concluída ✅ + T034a runbook criado
 
 ---
 
