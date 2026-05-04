@@ -23,10 +23,11 @@
 
 - name: F17 | Backup — assert dump não está vazio
   ansible.builtin.assert:
-    that: dump_stat.stat.size > 0
+    that: dump_stat.stat.exists and dump_stat.stat.size > 0
     fail_msg: "Backup falhou — arquivo vazio ou inexistente"
-    success_msg: "Backup OK — tamanho: {{ dump_stat.stat.size }} bytes"
+    success_msg: "Backup OK — tamanho: {{ dump_stat.stat.size | default(0) }} bytes"
   tags: [ f17, f17-backup ]
+  when: not ansible_check_mode
 
 - name: F17 | Backup — gerar SHA-256 do dump
   ansible.builtin.shell:

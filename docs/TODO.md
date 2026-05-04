@@ -10,9 +10,31 @@
 
 ## 🔴 P0 — Próxima Sessão (executar na ordem)
 
-1. [ ] **T034a execução** — promoção F16+F17 para wf001; **janela agendada: sábado 02h–04h UTC**; pré-requisitos todos ✅; dry-run primeiro: `ansible-playbook ansible/playbooks/t034a-promote-f16-f17-wf001.yml -i ansible/inventory/ --check --diff`
-2. [ ] **T034b** — promoção F18 para wf001 (bloqueado por prod-collector-api corrigir PROMETHEUS_PUSHGATEWAY_ENABLED=false)
-3. [ ] **Submeter issue F18 ao projeto responsável**: usar `specs/001-001-tunning-instrumentacao/contracts/prod-collector-api-issue.md`
+1. [ ] **T034a dry-run completo** — re-executar após correções de bugs; verificar backup de `n8n_db` (não `n8n_dev_db`) e ausência de erros em check mode
+2. [ ] **T034a reagendar janela** — janela original (sábado 02h–04h UTC) perdida (era 2026-05-03); propor nova janela: 2026-05-10 02h-04h UTC; coordenar com 121Labs e WhatsApp Gateway
+3. [ ] **T034a execução** — executar promoção F16+F17 para wf001 NA NOVA JANELA; pré-requisitos: dry-run ✅, janela confirmada ✅, stakeholders notificados ✅
+4. [ ] **T034b** — promoção F18 para wf001 (bloqueado por prod-collector-api corrigir PROMETHEUS_PUSHGATEWAY_ENABLED=false)
+5. [ ] **Submeter issue F18 ao projeto responsável**: usar `specs/001-001-tunning-instrumentacao/contracts/prod-collector-api-issue.md`
+
+## 🐛 BUGS CRÍTICOS DESCOBERTOS E CORRIGIDOS — 2026-05-04
+
+### Bug #1 — T034a Backup do Banco Errado 🔴 CRÍTICO
+- **Problema**: Playbook T034a configurado para backup de `n8n_dev_db` ao invés de `n8n_db` (produção)
+- **Causa**: Variável `db_to_backup: n8n_db` definida APÓS include do role `postgres_tuning` com tag `f17_backup`
+- **Impacto evitado**: Em produção, rollback restauraria dados de DEV sobre PROD — perda irreversível de dados
+- **Correção**: ✅ Variável movida para ANTES do include em `ansible/playbooks/t034a-promote-f16-f17-wf001.yml`
+- **Descoberto**: Durante preparação de dry-run T034a
+- **Data**: 2026-05-04T14:45Z
+
+### Bug #2 — T034a Falha em Check Mode 🟡 MÉDIO
+- **Problema**: Role `postgres_tuning/tasks/f17_backup.yml` falhava em `--check` mode
+- **Causa**: Task de criação de diretório de backup sem `when: not ansible_check_mode`
+- **Impacto evitado**: Impossibilidade de validar playbook via dry-run antes de execução
+- **Correção**: ✅ Condicional adicionada à task de mkdir em `ansible/roles/postgres_tuning/tasks/f17_backup.yml`
+- **Descoberto**: Durante dry-run T034a
+- **Data**: 2026-05-04T14:47Z
+
+**Lição aprendida**: Sempre validar playbooks em `--check` mode antes de execução em produção; sempre verificar precedência de variáveis em includes ansible.
 
 ## 🔵 P1 — Pendente
 

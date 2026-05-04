@@ -94,6 +94,9 @@
   tags:
     - t034a
     - f17-backup
+  vars:
+    # ⚠️  OVERRIDE: forçar banco de PRODUÇÃO (wfdb02.yml define n8n_dev_db por padrão)
+    db_name: n8n_db
   tasks:
     - name: "F17 Backup | Executar pg_dump n8n_db via role"
       ansible.builtin.import_role:
