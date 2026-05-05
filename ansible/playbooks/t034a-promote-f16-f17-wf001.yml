@@ -153,6 +153,7 @@
       delay: 10
       register: healthz_check
       until: healthz_check.status == 200
+      check_mode: false
 
     - name: AFTER | Verificar endpoint de métricas
       ansible.builtin.uri:
@@ -161,10 +162,11 @@
         timeout: 10
         validate_certs: true
       register: metrics_check
+      check_mode: false
 
     - name: AFTER | Exibir resultado
       ansible.builtin.debug:
         msg:
-          - "healthz: {{ healthz_check.status }}"
-          - "metrics: {{ metrics_check.status }}"
+          - "healthz: {{ healthz_check.status | default('N/A') }}"
+          - "metrics: {{ metrics_check.status | default('N/A') }}"
           - "T034a F16+F17 aplicados com sucesso em wf001"
