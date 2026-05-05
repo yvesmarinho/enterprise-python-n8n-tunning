@@ -128,7 +128,7 @@ tmp/              ✅ presente (.gitignore correto)
 ```yaml
 phases:
   - phase: P1
-    note: "Features independentes — podem ser executadas em paralelo em wfdb01 
+    note: "Features independentes — podem ser executadas em paralelo em wfdb01
            antes de promover em bloco para wf001"
     features: [ F16, F17, F18 ]
 ```
@@ -280,7 +280,7 @@ docs/SESSIONS/YYYY-MM-DD/
 
 **Impacto**: T034a não pode ser executado em produção sem janela aprovada.
 
-**Ação necessária**: 
+**Ação necessária**:
 1. Definir nova janela de manutenção (proposta: 2026-05-10 02h-04h UTC)
 2. Coordenar com stakeholders (121Labs, WhatsApp Gateway)
 3. Obter aprovação do project-manager
@@ -306,11 +306,11 @@ docs/SESSIONS/YYYY-MM-DD/
 
 **Problema**: Roteiro atual (T034a) visa produção, mas usuário está em fase de desenvolvimento.
 
-**Evidência**: 
+**Evidência**:
 - T034a playbook: `hosts: wf001` (produção)
 - Usuário declarou: "estamos na fase de desenvolvimento, não utilizar servidores de produção"
 
-**Impacto**: 
+**Impacto**:
 - Risco de alterar produção durante desenvolvimento
 - Violação das regras de projeto
 - Possível interrupção de workflows de clientes
@@ -427,7 +427,7 @@ docs/SESSIONS/YYYY-MM-DD/
 
 **Lição**: Sempre validar **fase do projeto** (desenvolvimento vs. promoção) antes de executar playbooks contra produção.
 
-**Aplicação futura**: 
+**Aplicação futura**:
 - Criar flag `--environment [dev|prod]` nos playbooks
 - Adicionar confirmação explícita antes de executar em wf001
 - Documentar fase atual do projeto em `docs/PROJECT_STATUS.md`
