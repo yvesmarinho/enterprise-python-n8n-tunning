@@ -17,29 +17,21 @@
   the iteration process.
 -->
 
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]
-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]
-**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]
+**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
+**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
+**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
+**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
 **Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
-**Project Type**: [e.g., library/cli/web-service/mobile-app/compiler/desktop-app or NEEDS CLARIFICATION]
-**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]
-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]
+**Project Type**: [e.g., library/cli/web-service/mobile-app/compiler/desktop-app or NEEDS CLARIFICATION]  
+**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
+**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
 **Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-Verify all 7 principles from `.specify/memory/constitution.md`:
-
-- [ ] **I. SDD** — Feature traces to a declared entry in `objetivo.yaml` (F01–F25 or new feature added first)
-- [ ] **II. Performance-Tuning Scope** — Feature is tuning/instrumentation/observability; if it involves upgrading N8N container version, STOP — that belongs to a separate project
-- [ ] **III. Infrastructure Safety** — Backup plan exists; rollback documented; maintenance window approved for wf001 and wfdb02 actions; for F17 PostgreSQL operations, `pg_dump` MUST target **wfdb02** (82.197.64.145:6432), not wf001
-- [ ] **IV. wfdb01 Gate** — Configuration validated in wfdb01 for at least one 121Labs PABX peak cycle before wf001 promotion; before/after metrics planned
-- [ ] **V. Idempotent Automation** — All Ansible/Python artefacts planned as idempotent; `ansible-lint` gate included
-- [ ] **VI. Observability** — Before/after ANA-001 baseline metrics planned; session artefacts (`DAILY_ACTIVITIES`, `SESSION_REPORT`) in scope; instrumentation gap being closed identified (F16/F18/F22/F23/F24)
-- [ ] **VII. Credential Hygiene** — No credentials in any artefact; `.secrets/ssh.json` as SSH source; Vault for DB passwords
+[Gates determined based on constitution file]
 
 ## Project Structure
 

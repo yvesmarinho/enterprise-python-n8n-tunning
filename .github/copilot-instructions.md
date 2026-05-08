@@ -265,3 +265,8 @@ Todo playbook que acessa VPS deve ter Play 1 para knock SPA:
 ## Active Technologies
 - Python 3.11 (uv, Fabric pattern, reStructuredText docstrings, Doctest) + Ansible 2.15+, ansible-lint, Fabric/Paramiko, psycopg2-binary, prometheus-client (001-001-tunning-instrumentacao)
 - PostgreSQL 16 (wfdb02 — 82.197.64.145:6432; Pgbouncer pooler :5432); N8N Docker volumes em `/opt/docker_user/n8n` (001-001-tunning-instrumentacao)
+
+<!-- SPECKIT START -->
+For additional context about technologies to be used, project structure,
+shell commands, and other important information, read the current plan
+<!-- SPECKIT END -->

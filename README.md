@@ -8,6 +8,16 @@
 
 ---
 
+---
+
+<!-- Enterprise Template Sections (Auto-Added) -->
+
+
+
+---
+
+<!-- Original Sections Below -->
+
 ## 🚀 Início Rápido
 
 ```bash

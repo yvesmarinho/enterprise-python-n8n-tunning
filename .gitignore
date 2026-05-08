@@ -1,3 +1,12 @@
+# === Enterprise Template Security (Auto-Added by Scaffold) ===
+# CRITICAL: Never commit credentials, tokens, or keys
+# Added: 2026-05-08 10:18:16
+.vault_pass
+*secret*
+*password*
+*token*
+
+# === Original Content Below ===
 # Segredos e credenciais
 .secrets/
 *.key
