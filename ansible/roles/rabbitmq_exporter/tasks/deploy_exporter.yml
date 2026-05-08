@@ -1,0 +1,106 @@
+---
+# ansible/roles/rabbitmq_exporter/tasks/deploy_exporter.yml
+# Implanta o rabbitmq-exporter via docker-compose.override.yml
+# IDEMPOTENTE: re-execução resulta em changed=0 se não houve alteração
+
+- name: RabbitMQ Exporter | Ensure monitoring user exists in RabbitMQ
+  ansible.builtin.command:
+    cmd: >-
+      docker exec rabbitmq rabbitmqctl add_user
+      {{ rabbitmq_exporter_user }} {{ rabbitmq_exporter_password }}
+  become: true
+  become_user: root
+  register: add_user_result
+  changed_when: "'done' in add_user_result.stdout"
+  failed_when:
+    - add_user_result.rc != 0
+    - "'already exists' not in add_user_result.stderr"
+  no_log: true
+  tags: [rabbitmq_exporter]
+
+- name: RabbitMQ Exporter | Grant monitoring tag to exporter user
+  ansible.builtin.command:
+    cmd: "docker exec rabbitmq rabbitmqctl set_user_tags {{ rabbitmq_exporter_user }} monitoring"
+  become: true
+  become_user: root
+  changed_when: true
+  tags: [rabbitmq_exporter]
+
+- name: RabbitMQ Exporter | Grant read permissions on all vhosts
+  ansible.builtin.command:
+    cmd: >-
+      docker exec rabbitmq rabbitmqctl set_permissions -p /
+      {{ rabbitmq_exporter_user }} "" "" ".*"
+  become: true
+  become_user: root
+  changed_when: true
+  tags: [rabbitmq_exporter]
+
+- name: RabbitMQ Exporter | Assert rabbitmq compose dir exists
+  ansible.builtin.stat:
+    path: "{{ rabbitmq_compose_dir }}/docker-compose.yaml"
+  register: rmq_compose_stat
+  tags: [rabbitmq_exporter]
+
+- name: RabbitMQ Exporter | Fail if rabbitmq compose not found
+  ansible.builtin.assert:
+    that: rmq_compose_stat.stat.exists
+    fail_msg: "docker-compose.yaml não encontrado em {{ rabbitmq_compose_dir }}"
+  tags: [rabbitmq_exporter]
+
+- name: RabbitMQ Exporter | Deploy docker-compose.override.yml
+  ansible.builtin.template:
+    src: docker-compose.rabbitmq-exporter.j2
+    dest: "{{ rabbitmq_compose_dir }}/docker-compose.override.yml"
+    owner: docker_user
+    group: docker_user
+    mode: "0644"
+    backup: true
+  become: true
+  become_user: root
+  register: rmq_override_deploy
+  tags: [rabbitmq_exporter]
+
+- name: RabbitMQ Exporter | Ensure exporter service is up (idempotente)
+  ansible.builtin.command:
+    cmd: "docker compose up -d {{ rabbitmq_exporter_container_name }}"
+    chdir: "{{ rabbitmq_compose_dir }}"
+  become: true
+  become_user: root
+  changed_when: rmq_override_deploy.changed
+  tags: [rabbitmq_exporter]
+
+- name: RabbitMQ Exporter | Wait for container to be healthy (30s)
+  ansible.builtin.command:
+    cmd: "docker inspect --format '{{ '{{.State.Running}}' }}' {{ rabbitmq_exporter_container_name }}"
+  become: true
+  become_user: root
+  register: container_state
+  retries: 6
+  delay: 5
+  until: container_state.stdout == 'true'
+  changed_when: false
+  tags: [rabbitmq_exporter]
+
+- name: RabbitMQ Exporter | Validate metrics via curl from host
+  ansible.builtin.command:
+    cmd: >-
+      docker run --rm
+      --network {{ rabbitmq_exporter_network | default('app-network') }}
+      curlimages/curl:8.7.1
+      -sf http://{{ rabbitmq_exporter_container_name }}:{{ rabbitmq_exporter_port }}/metrics
+  register: exporter_metrics_check
+  become: true
+  become_user: root
+  changed_when: false
+  retries: 6
+  delay: 10
+  until: exporter_metrics_check.rc == 0
+  tags: [rabbitmq_exporter]
+
+- name: RabbitMQ Exporter | Confirm rabbitmq_queue_* metrics present
+  ansible.builtin.assert:
+    that: "'rabbitmq_queue' in exporter_metrics_check.stdout"
+    fail_msg: "Métricas rabbitmq_queue_* ausentes — verificar credenciais e conectividade"
+    success_msg: "Métricas rabbitmq_queue_* presentes no exporter"
+  tags: [rabbitmq_exporter]

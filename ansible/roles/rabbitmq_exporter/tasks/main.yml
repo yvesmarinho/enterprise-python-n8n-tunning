@@ -1,0 +1,12 @@
+---
+# ansible/roles/rabbitmq_exporter/tasks/main.yml
+# Entry point do role rabbitmq_exporter
+# F16 revisado — Opção A: RabbitMQ Exporter para métricas de fila via Prometheus
+
+- name: Deploy rabbitmq-exporter container
+  ansible.builtin.include_tasks: deploy_exporter.yml
+  tags: [rabbitmq_exporter]
+
+- name: Update Prometheus config with rabbitmq scrape job
+  ansible.builtin.include_tasks: update_prometheus.yml
+  tags: [rabbitmq_exporter, prometheus]

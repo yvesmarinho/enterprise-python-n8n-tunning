@@ -1,0 +1,97 @@
+---
+# ansible/playbooks/audit-infra-wfdb01.yml
+# Coleta arquivos de configuração de wfdb01 para análise local
+# Uso: ansible-playbook ansible/playbooks/audit-infra-wfdb01.yml -i ansible/inventory/
+# Saída: /tmp/audit-wfdb01/
+
+- name: SPA Knock — wfdb01
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [always]
+  tasks:
+    - name: Knock SSH SPA via fwknop
+      ansible.builtin.command:
+        cmd: fwknop --rc-file ~/.fwknoprc -n wfdb01
+      changed_when: true
+      check_mode: false
+
+    - name: Wait after knock
+      ansible.builtin.pause:
+        seconds: 4
+
+    - name: Wait for SSH port 5010
+      ansible.builtin.wait_for:
+        host: 86.48.31.149
+        port: 5010
+        timeout: 30
+      check_mode: false
+
+- name: Slurp config files from wfdb01
+  hosts: wfdb01
+  become: false
+  gather_facts: false
+  vars:
+    audit_files:
+      - /opt/docker_user/enterprise-observability/config/prometheus.yaml
+      - /opt/docker_user/enterprise-observability/docker-compose.yaml
+      - /opt/docker_user/rabbitmq/docker-compose.yaml
+      - /opt/docker_user/n8n/docker-compose.yaml
+    audit_local_dir: /tmp/audit-wfdb01
+
+  tasks:
+    - name: Slurp each config file
+      ansible.builtin.slurp:
+        src: "{{ item }}"
+      loop: "{{ audit_files }}"
+      register: slurp_results
+      ignore_errors: true
+      tags: [audit]
+
+    - name: Ensure local audit dir
+      ansible.builtin.file:
+        path: "{{ audit_local_dir }}"
+        state: directory
+        mode: "0755"
+      delegate_to: localhost
+      tags: [audit]
+
+    - name: Save slurped files locally (path-based name)
+      ansible.builtin.copy:
+        content: "{{ item.content | b64decode }}"
+        dest: "{{ audit_local_dir }}/{{ item.source | replace('/', '_') | regex_replace('^_+', '') }}.yml"
+        mode: "0644"
+      loop: "{{ slurp_results.results }}"
+      when: item.content is defined
+      delegate_to: localhost
+      tags: [audit]
+
+    - name: List running containers
+      ansible.builtin.command:
+        cmd: docker ps --format "{{ '{{.Names}}' }}\t{{ '{{.Image}}' }}\t{{ '{{.Status}}' }}"
+      register: docker_ps
+      changed_when: false
+      tags: [audit]
+
+    - name: Save container list locally
+      ansible.builtin.copy:
+        content: "{{ docker_ps.stdout }}"
+        dest: "{{ audit_local_dir }}/docker-ps.txt"
+        mode: "0644"
+      delegate_to: localhost
+      tags: [audit]
+
+    - name: List docker networks
+      ansible.builtin.command:
+        cmd: docker network ls --format "{{ '{{.Name}}' }}\t{{ '{{.Driver}}' }}"
+      register: docker_networks
+      changed_when: false
+      tags: [audit]
+
+    - name: Save networks list locally
+      ansible.builtin.copy:
+        content: "{{ docker_networks.stdout }}"
+        dest: "{{ audit_local_dir }}/docker-networks.txt"
+        mode: "0644"
+      delegate_to: localhost
+      tags: [audit]

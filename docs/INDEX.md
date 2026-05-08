@@ -2,8 +2,8 @@
 
 **Projeto**: `enterprise-python-n8n-tunning`
 **Criado em**: 2026-04-01T13:38:39Z
-**Last Updated**: 2026-05-05 — T034a dry-run validated (Bug #3 fixed); Compliance analysis 87.5%; Maintenance window 2026-05-10 scheduled
-**Last Session**: 2026-05-05
+**Last Updated**: 2026-05-08 — F16 revisado: kbudde/rabbitmq-exporter homologado em wfdb01; avaliação N8N 2.19.5; T034a em 2026-05-10
+**Last Session**: 2026-05-08
 
 ---
 
@@ -19,6 +19,7 @@
 
 | Data | Conquistas | Status |
 |------|------------|--------|
+| 2026-05-08 | F16 revisado (rabbitmq-exporter v0.29.0) homologado em wfdb01; Avaliação N8N 2.19.5; 256 execuções stuck identificadas | ✅ |
 | 2026-05-05 | T034a dry-run validado (Bug #3 fix); Análise conformidade 87.5%; Runbook manutenção 2026-05-10 | ✅ |
 | 2026-05-04 | Bug #1 & #2 descobertos e corrigidos; T034a preparação iniciada | ✅ |
 | 2026-04-30 | F16+F17+F18 validados em wfdb01; Gates executados | ✅ |
@@ -40,4 +41,12 @@ SESSIONS/
 
 ---
 
-*Gerado por scaffold.py em 2026-04-01T13:38:39Z — Atualizado 2026-05-05*
+*Gerado por scaffold.py em 2026-04-01T13:38:39Z — Atualizado 2026-05-08*
+
+## Artefatos Ansible — F16 Revisado (RabbitMQ Exporter)
+
+| Arquivo | Descrição |
+|---------|-----------|
+| [ansible/roles/rabbitmq_exporter/](../ansible/roles/rabbitmq_exporter/) | Role completo — deploy kbudde/rabbitmq-exporter |
+| [ansible/playbooks/f16-rabbitmq-exporter.yml](../ansible/playbooks/f16-rabbitmq-exporter.yml) | Playbook F16 revisado com SPA knock + rollback |
+| [ansible/playbooks/audit-infra-wfdb01.yml](../ansible/playbooks/audit-infra-wfdb01.yml) | Auditoria de infraestrutura wfdb01 via slurp |

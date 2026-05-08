@@ -1,0 +1,100 @@
+---
+# ansible/playbooks/f16-rabbitmq-exporter.yml
+# F16 revisado — Opção A: RabbitMQ Exporter para homologação em wfdb01
+#
+# Contexto: N8N usa N8N_QUEUE_MODE=rabbitmq. O exporter original (F16 Bull)
+# não produz métricas de fila neste modo. Esta playbook implanta o
+# kbudde/rabbitmq-exporter que coleta métricas da Management API do RabbitMQ
+# e as expõe para scrape pelo Prometheus.
+#
+# Pré-requisito: credencial do usuário da Management API em vault ou -e
+#   ansible-playbook ... -e "rabbitmq_exporter_password=SENHA"
+#
+# Execução:
+#   ansible-playbook ansible/playbooks/f16-rabbitmq-exporter.yml \
+#     -i ansible/inventory/ \
+#     -e "rabbitmq_exporter_password=SENHA"
+#
+# Dry-run:
+#   ansible-playbook ... --check --diff
+#
+# Rollback (remove exporter):
+#   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook \
+#     ansible/playbooks/f16-rabbitmq-exporter.yml \
+#     -i ansible/inventory/ --tags rollback
+
+# --- Play 1: SPA Knock ---
+- name: SPA Knock — wfdb01
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [always]
+  tasks:
+    - name: Knock SSH SPA via fwknop
+      ansible.builtin.command:
+        cmd: fwknop --rc-file ~/.fwknoprc -n wfdb01
+      changed_when: true
+      check_mode: false
+
+    - name: Wait after knock
+      ansible.builtin.pause:
+        seconds: 4
+
+    - name: Wait for SSH port 5010
+      ansible.builtin.wait_for:
+        host: 86.48.31.149
+        port: 5010
+        timeout: 30
+      check_mode: false
+
+# --- Play 2: Deploy RabbitMQ Exporter (F16 revisado) ---
+- name: F16 revisado — RabbitMQ Exporter (wfdb01 homologação)
+  hosts: wfdb01
+  become: false
+  gather_facts: true
+  tags: [f16, rabbitmq_exporter]
+  roles:
+    - role: rabbitmq_exporter
+
+# --- Play 3: Rollback — remove exporter e scrape job ---
+- name: Rollback — Remove RabbitMQ Exporter
+  hosts: wfdb01
+  become: false
+  gather_facts: false
+  tags: [rollback, never]
+  tasks:
+    - name: Stop and remove rabbitmq-exporter container
+      ansible.builtin.command:
+        cmd: "docker compose rm -sf rabbitmq-exporter"
+        chdir: "{{ rabbitmq_compose_dir | default('/opt/docker_user/rabbitmq') }}"
+      become: true
+      become_user: root
+      ignore_errors: true
+      tags: [rollback]
+
+    - name: Remove docker-compose.override.yml do rabbitmq
+      ansible.builtin.file:
+        path: "{{ rabbitmq_compose_dir | default('/opt/docker_user/rabbitmq') }}/docker-compose.override.yml"
+        state: absent
+      become: true
+      become_user: root
+      tags: [rollback]
+
+    - name: Remove rabbitmq-exporter block do prometheus.yaml
+      ansible.builtin.blockinfile:
+        path: "{{ prometheus_config_file | default('/opt/docker_user/enterprise-observability/config/prometheus.yaml') }}"
+        marker: "  # {mark} ANSIBLE MANAGED BLOCK — rabbitmq-exporter"
+        state: absent
+      become: true
+      become_user: root
+      register: prom_rollback
+      tags: [rollback]
+
+    - name: Reload Prometheus após remoção
+      ansible.builtin.command:
+        cmd: "docker kill --signal=HUP enterprise-prometheus"
+      become: true
+      become_user: root
+      when: prom_rollback.changed
+      changed_when: true
+      tags: [rollback]

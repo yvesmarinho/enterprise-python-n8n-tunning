@@ -1,0 +1,25 @@
+---
+# ansible/roles/rabbitmq_exporter/defaults/main.yml
+# Defaults para o role rabbitmq_exporter (F16 revisado — Opção A)
+
+# Imagem do exporter (Prometheus Community)
+rabbitmq_exporter_image: "kbudde/rabbitmq-exporter:v0.29.0"
+rabbitmq_exporter_container_name: "rabbitmq-exporter"
+rabbitmq_exporter_port: 9419
+
+# Management API — dentro da rede Docker app-network
+rabbitmq_management_url: "http://rabbitmq:15672"
+
+# Credenciais — sobrescrever via group_vars ou vault
+rabbitmq_exporter_user: "dialer"
+rabbitmq_exporter_password: "{{ vault_rabbitmq_exporter_password | default('CHANGE_ME') }}"
+
+# Diretório do compose do rabbitmq no host alvo
+rabbitmq_compose_dir: /opt/docker_user/rabbitmq
+
+# Diretório do config do prometheus no host alvo
+prometheus_config_dir: /opt/docker_user/enterprise-observability/config
+prometheus_config_file: "{{ prometheus_config_dir }}/prometheus.yaml"
+
+# Container name do Prometheus (para reload via SIGHUP)
+prometheus_container_name: enterprise-prometheus

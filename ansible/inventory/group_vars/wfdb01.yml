@@ -11,3 +11,11 @@ n8n_services:
   - n8n_worker
   - n8n_webhook
   - n8n_mcp
+
+# --- F16 revisado: RabbitMQ Exporter ---
+rabbitmq_compose_dir: /opt/docker_user/rabbitmq
+rabbitmq_management_url: "http://rabbitmq:15672"
+rabbitmq_exporter_user: "dialer"
+# rabbitmq_exporter_password: definir via vault ou -e rabbitmq_exporter_password=SENHA
+prometheus_config_file: /opt/docker_user/enterprise-observability/config/prometheus.yaml
+prometheus_container_name: enterprise-prometheus

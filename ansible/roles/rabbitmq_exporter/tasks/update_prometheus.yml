@@ -1,0 +1,61 @@
+---
+# ansible/roles/rabbitmq_exporter/tasks/update_prometheus.yml
+# Adiciona scrape job do rabbitmq-exporter ao prometheus.yaml
+# IDEMPOTENTE: usa blockinfile com marker — re-execução changed=0 se já presente
+
+- name: Prometheus | Ensure rabbitmq-exporter scrape job is present
+  ansible.builtin.blockinfile:
+    path: "{{ prometheus_config_file }}"
+    marker: "  # {mark} ANSIBLE MANAGED BLOCK — rabbitmq-exporter"
+    insertafter: "^scrape_configs:"
+    block: |
+      # RabbitMQ Exporter — métricas de fila (F16 revisado)
+      - job_name: "rabbitmq-exporter"
+        static_configs:
+          - targets:
+              - "{{ rabbitmq_exporter_container_name }}:{{ rabbitmq_exporter_port }}"
+        scrape_interval: 15s
+        scrape_timeout: 10s
+        metrics_path: /metrics
+        relabel_configs:
+          - target_label: instance
+            replacement: "wfdb01-rabbitmq"
+          - target_label: environment
+            replacement: "homologacao"
+  become: true
+  become_user: root
+  register: prometheus_config_update
+  tags: [rabbitmq_exporter, prometheus]
+
+- name: Prometheus | Reload config via SIGHUP (sem restart)
+  ansible.builtin.command:
+    cmd: "docker kill --signal=HUP {{ prometheus_container_name }}"
+  become: true
+  become_user: root
+  when: prometheus_config_update.changed
+  changed_when: true
+  tags: [rabbitmq_exporter, prometheus]
+
+- name: Prometheus | Wait 10s for config reload
+  ansible.builtin.pause:
+    seconds: 10
+  when: prometheus_config_update.changed
+  tags: [rabbitmq_exporter, prometheus]
+
+- name: Prometheus | Verify rabbitmq-exporter target is known
+  ansible.builtin.uri:
+    url: "http://localhost:9090/api/v1/targets"
+    return_content: true
+    status_code: 200
+    timeout: 10
+  register: prom_targets
+  changed_when: false
+  ignore_errors: true
+  tags: [rabbitmq_exporter, prometheus]
+
+- name: Prometheus | Report target status
+  ansible.builtin.debug:
+    msg: >
+      Target rabbitmq-exporter:
+      {{ 'FOUND' if 'rabbitmq-exporter' in (prom_targets.json | default({}) | string) else 'NOT FOUND — verificar rede Docker' }}
+  tags: [rabbitmq_exporter, prometheus]

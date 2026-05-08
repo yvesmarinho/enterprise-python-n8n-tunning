@@ -1,12 +1,44 @@
 # 📝 TODO — Enterprise Python N8n Tunning
 
-**Last Updated**: 2026-05-05 — Session 2026-05-05 encerrada; T034a dry-run validado; janela de manutenção formal agendada 2026-05-10
+**Last Updated**: 2026-05-08 — F16 revisado (rabbitmq-exporter) deployado em wfdb01 ✅; janela T034a em 2026-05-10
 
 ---
 
 ## 🟠 Em Progresso
 
 - [ ] **T033r** — ProvenanceGate aguarda prod-collector-api corrigir `PROMETHEUS_PUSHGATEWAY_ENABLED=false` (KNOWN_ISSUE_F18)
+
+## ✅ Concluído (2026-05-08)
+
+- [x] **F16 revisado** — kbudde/rabbitmq-exporter v0.29.0 deployado e validado em wfdb01 (métricas `rabbitmq_queue_*` confirmadas)
+  - Role Ansible: `ansible/roles/rabbitmq_exporter/`
+  - Playbook: `ansible/playbooks/f16-rabbitmq-exporter.yml`
+  - Usuário RabbitMQ `dialer` criado com tag `monitoring` em wfdb01
+  - Scrape job adicionado ao Prometheus wfdb01
+  - **Próximo**: promover para wf001 na janela T034a (2026-05-10)
+
+## 🔴 P0 — N8N 2.19.5 — Achados Críticos (2026-05-08)
+
+### CRITICO: 256 execuções stuck em "waiting" — workflow `hub-whatsapp-api-gateway-evolution-api`
+- **Problema**: 256 execuções paradas desde 2026-05-04 (4+ dias) aguardando webhook de retorno
+- **Impacto**: Consumo de conexões DB, pressão de memória, risco de timeout progressivo
+- **Ação**: Verificar se webhook de retorno está configurado; considerar `EXECUTIONS_TIMEOUT`
+
+### ALTO: Prometheus não raspa métricas N8N (porta 5678 bloqueada)
+- **Problema**: Target `n8n | wf001` DOWN — Prometheus não consegue alcançar `31.220.103.208:5678`
+- **Impacto**: Zero dados N8N em Prometheus/VictoriaMetrics — gap total de observabilidade
+- **Ações possíveis**:
+  1. UFW rule em wf001: `ufw insert 1 allow from 86.48.31.149 to any port 5678`
+  2. Expor `/metrics` via Traefik (rota interna autenticada)
+  3. Configurar PushGateway para N8N enviar métricas
+
+### ALTO: CPU instável em workers (pico 123% em worker-3)
+- **Problema**: Rotação de hot-worker detectada — worker-2 a 55% → worker-3 a 123% em 10min
+- **Ação**: Monitorar 24h; investigar workflow com concorrência alta ou loop
+
+### NOTA: Arquitetura de fila mudou — Bull/Redis → RabbitMQ
+- F16 (queue metrics Bull) precisa revisão para RabbitMQ
+- `QUEUE_BULL_REDIS_*` agora usado apenas para health check, não para filas
 
 ## 🔴 P0 — Janela de Manutenção Agendada
 

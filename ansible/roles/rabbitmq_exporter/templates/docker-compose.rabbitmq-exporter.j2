@@ -1,0 +1,28 @@
+{# ansible/roles/rabbitmq_exporter/templates/docker-compose.rabbitmq-exporter.j2 #}
+{# docker-compose.override.yml para o diretório /opt/docker_user/rabbitmq/ #}
+{# Adiciona o rabbitmq-exporter como serviço companheiro do RabbitMQ #}
+---
+services:
+  {{ rabbitmq_exporter_container_name }}:
+    image: {{ rabbitmq_exporter_image }}
+    container_name: "{{ rabbitmq_exporter_container_name }}"
+    hostname: "rabbitmq-exporter.vyadigital"
+    restart: unless-stopped
+    environment:
+      - RABBIT_URL={{ rabbitmq_management_url }}
+      - RABBIT_USER={{ rabbitmq_exporter_user }}
+      - RABBIT_PASSWORD={{ rabbitmq_exporter_password }}
+      - RABBIT_CAPABILITIES=bert,no_sort
+      - INCLUDE_QUEUES=.*
+      - OUTPUT_FORMAT=prometheus
+      - PUBLISH_PORT={{ rabbitmq_exporter_port }}
+      - LOG_LEVEL=info
+    networks:
+      - app-network
+    labels:
+      - "traefik.enable=false"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.1"
+          memory: "64M"
