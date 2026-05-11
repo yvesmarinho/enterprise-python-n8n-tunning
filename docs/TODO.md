@@ -1,12 +1,95 @@
 # 📝 TODO — Enterprise Python N8n Tunning
 
-**Last Updated**: 2026-05-08 — F16 revisado (rabbitmq-exporter) deployado em wfdb01 ✅; janela T034a em 2026-05-10
+**Last Updated**: 2026-05-11T11:05 — Sessão: Análise conformidade (87.5%), issues enterprise-observability submetidas, RUNBOOK próximas sessões criado
 
 ---
 
-## 🟠 Em Progresso
+## � Em Progresso
 
-- [ ] **T033r** — ProvenanceGate aguarda prod-collector-api corrigir `PROMETHEUS_PUSHGATEWAY_ENABLED=false` (KNOWN_ISSUE_F18)
+- [ ] **RUNBOOK Próximas Sessões até T034a** — `docs/SESSIONS/2026-05-11/RUNBOOK_NEXT_SESSIONS.md`
+  - Criado em: 2026-05-11T11:00
+  - Cobertura: 2026-05-12 até 2026-05-18 (pós-T034a)
+  - Próxima ação: Seguir T037 (acompanhar issues) em 2026-05-12
+
+- [ ] **T034a — Promoção F16+F17 para wf001**
+  - **Janela de manutenção**: 2026-05-17 15h–19h BRT (18h–22h UTC)
+  - **Aprovado por**: project-manager (2026-05-11)
+  - Item #1 (Prometheus): ✅ CONCLUÍDO (2026-05-11)
+  - Item #2 (Baseline): ✅ CONCLUÍDO (2026-05-11)
+  - Item #3 (Aprovação): ✅ CONCLUÍDO (2026-05-11)
+  - Itens #4-6: Pendentes de execução (ver RUNBOOK)
+  - **Duração estimada**: 25-30 min (+ margem de segurança 4h)
+  - **Bloqueador**: RabbitMQ exporter (issue #1) — GO/NO-GO em 2026-05-15
+
+## 🔴 P0 — Achados Críticos (2026-05-11)
+
+### CRÍTICO: Análise de Conformidade Concluída — Score 87.5%
+- **Resultado**: Alta conformidade com objetivo.yaml
+- **Destaques**: Framework completo, P1 concluída em wfdb01, bugs #1-#3 mitigados antes de produção
+- **Gaps**: Menores (docs cabeçalho, tmp/ limpeza, F12 pattern)
+- **Documentos**:
+  - `docs/SESSIONS/2026-05-11/COMPLIANCE_ANALYSIS_REPORT_2026-05-11.md`
+  - `docs/SESSIONS/2026-05-11/DEBATE_PROJECT_COMPLIANCE_2026-05-11.md`
+
+### ✅ RESOLVIDO: Prometheus wf001 corrigido — coleta de métricas N8N restaurada
+- **Problema**: Porta 5678 bloqueada — target `n8n | wf001` DOWN
+- **Solução**: Stack Prometheus corrigido pelo usuário (T034)
+- **Validação**: ✅ 2026-05-11T10:11:10 — prometheus_up: true, n8n_metrics_available: true
+- **Arquivo**: `scripts/tmp/prometheus_validation_20260511_101110.json`
+- **Próximo**: Coletar baseline de métricas 24h antes de T034a
+
+### CRÍTICO: 256 execuções stuck em "waiting" — workflow `hub-whatsapp-api-gateway-evolution-api`
+- **Problema**: 256 execuções paradas desde 2026-05-04 (7+ dias) aguardando webhook de retorno
+- **Impacto**: Consumo de conexões DB, pressão de memória, risco de timeout progressivo
+- **Ação**:
+  1. Verificar se webhook de retorno Evolution API está configurado
+  2. Considerar `EXECUTIONS_TIMEOUT` para evitar acúmulo
+  3. Purgar execuções stuck (se safe_to_prune: true)
+- **Tempo**: 30 minutos
+- **Relação T034a**: NÃO BLOQUEIA (problema isolado de configuração)
+
+## 🔴 P0 — Checklist T034a (antes de 2026-05-17 18h UTC)
+
+| # | Item | Owner | Deadline | Status |
+|---|------|-------|----------|--------|
+| 1 | Fix Prometheus DOWN wf001 | devops-engineer | 2026-05-11 | ✅ CONCLUÍDO |
+| 2 | Coletar baseline métricas wf001 | performance-analyst | 2026-05-11 | ✅ CONCLUÍDO |
+| 3 | Obter aprovação project-manager | project-manager | 2026-05-11 | ✅ CONCLUÍDO |
+| 4 | Notificar stakeholders (121Labs, WhatsApp) | project-manager | 2026-05-15 | 🔵 Pendente (48h antes) |
+| 5 | Executar backup PostgreSQL `n8n_db` | databases-engineer | 2026-05-16 | 🔵 Pendente (24h antes) |
+| 6 | Dry-run final T034a | devops-engineer | 2026-05-16 | 🔵 Pendente (24h antes) |
+
+**Janela aprovada**: 2026-05-17 15h–19h BRT (18h–22h UTC) — 4 horas
+
+## ✅ Concluído (2026-05-11)
+
+- [x] **Issues enterprise-observability** — Submetidas 2 issues para correção de gaps de monitoramento
+  - Issue #1: [Adicionar RabbitMQ Exporter](https://github.com/yvesmarinho/enterprise-observability/issues/1) — 🔴 BLOQUEADOR T034a
+  - Issue #2: [Corrigir métricas de memória vazias](https://github.com/yvesmarinho/enterprise-observability/issues/2) — 🟡 Bloqueia F23
+  - Arquivos: `docs/SESSIONS/2026-05-11/ISSUE_RABBITMQ_MONITORING_WF001.md`, `ISSUE_MEMORY_METRICS_WF001.md`
+
+- [x] **Janela T034a Agendada** — project-manager aprovou janela de manutenção
+  - Data: 2026-05-17 (sábado)
+  - Horário: 15h–19h BRT (18h–22h UTC)
+  - Duração: 4 horas (estimativa execução: 25-30 min)
+  - Checklist atualizado com novos deadlines
+
+- [x] **Prometheus wf001 Corrigido** — Stack Prometheus restaurado (T034)
+  - Validação: prometheus_up: true, n8n_metrics_available: true
+  - Arquivo: `scripts/tmp/prometheus_validation_20260511_101110.json`
+
+- [x] **Baseline Métricas Pré-T034a** — Coleta de estado atual antes de F16+F17
+  - 7 métricas principais documentadas
+  - Top workflows: 121Labs PABX (429K exec), WhatsApp Gateway (84K exec)
+  - Critérios de validação pós-T034a definidos
+  - Arquivo: `scripts/tmp/baseline_metrics_pre_t034a_20260511_101240.json`
+
+- [x] **Análise de Conformidade** — Comparação sistemática projeto vs. objetivo.yaml (9 sessões, 37 dias)
+  - Score: 87.5% conformidade
+  - Features F01-F14: 93% implementadas
+  - Features F15-F18: 75% concluídas em wfdb01
+  - Debate multi-agente: 8 agentes, 3 questões, consensos alcançados
+  - Recomendações P0/P1/P2 priorizadas
 
 ## ✅ Concluído (2026-05-08)
 
