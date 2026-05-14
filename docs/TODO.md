@@ -1,10 +1,26 @@
 # 📝 TODO — Enterprise Python N8n Tunning
 
-**Last Updated**: 2026-05-11T11:05 — Sessão: Análise conformidade (87.5%), issues enterprise-observability submetidas, RUNBOOK próximas sessões criado
+**Last Updated**: 2026-05-14T10:23 — Sessão: Validar progresso issues enterprise-observability
+**Last Session**: 2026-05-14
 
 ---
 
-## � Em Progresso
+## 🎯 Em Progresso
+
+- [ ] **Sessão 2026-05-14** — Validar progresso das issues enterprise-observability
+  - Criado em: 2026-05-14T10:19
+  - ✅ Análise de ações de restart concluída (4/5 ANTES da janela)
+  - ✅ Snippets Docker Compose gerados (rabbitmq-exporter, redis-exporter)
+  - ✅ CORREÇÃO CRÍTICA: Node Exporter já existe como systemd — NÃO adicionar ao Docker
+  - ✅ **Validação wf008**: Node-exporter rodando (systemd PID 1982526), métricas OK
+  - ⏳ **Validação wf001**: Aguardando confirmação (SSH em andamento)
+  - ❌ **Validação wfdb01**: BLOQUEADO — erro SPA knock (`.fwknoprc`)
+  - Documento: `docs/SESSIONS/2026-05-14/NODE_EXPORTER_VALIDATION_REPORT.md`
+  - **Achado Issue #2**: Métricas funcionam localmente (wf008) → problema é scrape Prometheus
+  - **Próxima ação P0**: Resolver acesso wfdb01 (servidor Prometheus — BLOQUEADOR T034a)
+  - **📌 PRÓXIMA SESSÃO**: Refazer validação completa node-exporter (completar wf001, resolver wfdb01, debugar wfdb02)
+
+## ⏸️ Em Progresso (da sessão anterior)
 
 - [ ] **RUNBOOK Próximas Sessões até T034a** — `docs/SESSIONS/2026-05-11/RUNBOOK_NEXT_SESSIONS.md`
   - Criado em: 2026-05-11T11:00
