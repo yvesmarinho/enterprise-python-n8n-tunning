@@ -5,7 +5,7 @@
 
 environment: wf001
 n8n_metrics_port: 5001 # Porta de métricas do N8N em wf001
-n8n_metrics_url: https://n8n.vya.digital # Endpoint N8N produção (via Traefik)
+n8n_metrics_url: https://workflow.vya.digital # Endpoint N8N produção (via Traefik)
 n8n_services:
   - n8n_editor
   - n8n_worker

@@ -1,0 +1,30 @@
+{
+  "report_id": "PERF-2195-20260521",
+  "generated_at": "2026-05-21T12:38:15.473788+00:00",
+  "n8n_version_assessed": "2.19.5",
+  "baseline_ref": "ANA-001",
+  "period_start": "2026-05-08T12:38:15Z",
+  "period_end": "2026-05-21T12:38:15Z",
+  "lookback_days": 13,
+  "vm_url": "http://localhost:18428",
+  "vm_reachable": false,
+  "error": "VictoriaMetrics inacessivel",
+  "baseline": {
+    "report_id": "ANA-001",
+    "period": "2026-01-01 to 2026-03-31",
+    "n8n_version": "2.6.4",
+    "total_executions_90d_scrape": 148058,
+    "total_executions_90d_pushgateway": 366303,
+    "active_workflows": 23,
+    "p95_latency_all_workflows_seconds": 0.095,
+    "workflows_exceeding_1s": 0,
+    "top_workflow": "121Labs PABX call-analytics",
+    "top_workflow_executions_90d": 429786,
+    "top_workflow_pct": 57,
+    "peak_exec_per_hour": 8416,
+    "peak_date": "2026-03-27T20:00:00Z",
+    "cpu_bottleneck": false,
+    "queue_metrics_enabled": false,
+    "dual_collection_confirmed": true
+  }
+}

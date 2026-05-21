@@ -1,8 +1,8 @@
 # 📊 Session Report — 2026-05-14
 
-**Branch**: `001-001-tunning-instrumentacao`  
-**Sessão**: 10:19 → 12:15 BRT (~2h)  
-**Modo**: ANALYSIS  
+**Branch**: `001-001-tunning-instrumentacao`
+**Sessão**: 10:19 → 12:15 BRT (~2h)
+**Modo**: ANALYSIS
 **Objetivo**: Validar progresso das issues enterprise-observability (Issue #1 RabbitMQ, Issue #2 Memory)
 
 ---
@@ -79,7 +79,7 @@ node_memory_MemAvailable_bytes 2.147483648e+09
 
 **Severidade**: 🔴 **P0 CRÍTICO**
 
-**Problema**: 
+**Problema**:
 ```bash
 [ERRO] Falha ao enviar knock. Verifique ~/.fwknoprc e a seção [wfdb01]
 ```
@@ -89,7 +89,7 @@ node_memory_MemAvailable_bytes 2.147483648e+09
 - ❌ Não é possível validar N8N teste em wfdb01
 - ❌ Pode bloquear T034a se Prometheus não puder ser reconfigurado
 
-**Decisão**: 
+**Decisão**:
 - Se wfdb01 não for acessível até **2026-05-16 10h UTC** → **NO-GO para T034a**
 - Alternativa: Migrar Prometheus temporariamente para outro servidor (ex: wf001 container)
 
@@ -117,7 +117,7 @@ node_memory_MemAvailable_bytes 2.147483648e+09
 
 **Antes**: Métricas de memória vazias em wf001, causa desconhecida
 
-**Agora**: 
+**Agora**:
 - ✅ **Confirmado**: Node-exporter funciona localmente (validado wf008)
 - ✅ **Causa identificada**: Problema está no **Prometheus scrape config** (não no node-exporter)
 - ✅ **Próximo passo**: Validar scrape config em wfdb01 + testar query `up{job="node",instance="wf001:9100"}`
@@ -133,7 +133,7 @@ node_memory_MemAvailable_bytes 2.147483648e+09
 
 **Antes**: Documento incluía node-exporter no docker-compose.yaml
 
-**Agora**: 
+**Agora**:
 - ✅ **Excluído** após validação (evita conflito porta 9100)
 - ✅ **Documento revisado** com aviso no topo
 - ✅ **Foco correto**: Apenas RabbitMQ (9419) e Redis (9121) exporters
@@ -268,5 +268,5 @@ fwknop --rc-file ~/.fwknoprc -n wfdb01
 
 ---
 
-**Sessão encerrada**: 2026-05-14 12:15 BRT  
+**Sessão encerrada**: 2026-05-14 12:15 BRT
 **Próxima sessão**: 2026-05-15 (resolver wfdb01 + completar validação)

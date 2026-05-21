@@ -1,11 +1,32 @@
 # 📝 TODO — Enterprise Python N8n Tunning
 
-**Last Updated**: 2026-05-14T10:23 — Sessão: Validar progresso issues enterprise-observability
-**Last Session**: 2026-05-14
+**Last Updated**: 2026-05-21T15:30 — Sessão 2026-05-21: análise concluída + issue dashboards aberta
+**Last Session**: 2026-05-21
 
 ---
 
 ## 🎯 Em Progresso
+
+- [ ] **Sessão 2026-05-21** — Recuperação de contexto + destravar pendências P0/T034a
+  - Criado em: 2026-05-21
+  - ✅ Ritual session-start executado (MCP, contexto, regras, segurança, git)
+  - ✅ Modo declarado: ANALYSIS
+  - ✅ Objetivo declarado: Coletar dados no prometheus para varificar desempenho após atualização.
+  - ✅ Análise pós-upgrade iniciada para janela 08/05 → 21/05 (N8N 2.19.5)
+  - ✅ Fallback de métricas validado em teste (`testn8n.vya.digital`: 4/4 métricas de fila)
+  - ❌ Endpoint de produção correto (`workflow.vya.digital`) acessível, mas sem métricas de fila esperadas
+  - ❌ VictoriaMetrics inacessível sem túnel/rota interna (`vm_reachable=false`)
+  - ✅ Causa-raiz de histórico curto identificada: `job=n8n` DOWN no Prometheus (`31.220.103.208:5678/metrics`, `connection refused`)
+  - ✅ Runtime scrape mapeado em wfdb01: job `n8n` configurado para `31.220.103.208:5678` e endpoint alternativo `https://workflow.vya.digital/metrics` validado com HTTP 200
+  - ✅ Correção do scrape `job=n8n` validada em runtime: `scrapeUrl=https://workflow.vya.digital:443/metrics` e `health=up`
+  - ✅ Recoleta VM pós-fix executada: `dur_count_[2d,7d,30d]=28`, enquanto `executions_total` segue vazio/0
+  - ✅ Issue de correção para dashboards aberta no projeto dedicado: `enterprise-observability-dashboards#1`
+  - ✅ Report de conclusão da análise gerado: `docs/SESSIONS/2026-05-21/ANALYSIS_CONCLUSION_2026-05-21.md`
+  - ⏳ Ajustar baseline e consultas para usar `n8n_workflow_execution_duration_seconds_count` como série histórica principal
+  - ⏳ Resolver acesso SPA ao wfdb01 (`.fwknoprc`) para validações pendentes
+  - ⏳ Confirmar progresso da issue #1 (RabbitMQ exporter) no `enterprise-observability`
+  - ⏳ Revalidar pendências de checklist T034a: notificação, backup `n8n_db`, dry-run final
+  - Documento: `docs/SESSIONS/2026-05-21/PROMETHEUS_POST_UPGRADE_ANALYSIS_2026-05-21.md`
 
 - [ ] **Sessão 2026-05-14** — Validar progresso das issues enterprise-observability
   - Criado em: 2026-05-14T10:19

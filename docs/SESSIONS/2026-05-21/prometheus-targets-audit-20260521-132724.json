@@ -1,0 +1,29 @@
+{
+    "collected_at": "2026-05-21T13:27:23.949248+00:00",
+    "prometheus_container": "enterprise-prometheus",
+    "api_url": "http://127.0.0.1:9090/api/v1/targets",
+    "fetch_ok": true,
+    "error": null,
+    "targets_filtered": [
+        {
+            "job": "n8n",
+            "instance": "wf001",
+            "scrapeUrl": "http://31.220.103.208:5678/metrics",
+            "health": "down",
+            "lastError": "Get \"http://31.220.103.208:5678/metrics\": dial tcp 31.220.103.208:5678: connect: connection refused",
+            "lastScrape": "2026-05-21T10:27:22.799193085-03:00"
+        },
+        {
+            "job": "pushgateway_wfdb01",
+            "instance": "pushgateway:9091",
+            "scrapeUrl": "http://pushgateway:9091/metrics",
+            "health": "up",
+            "lastError": "",
+            "lastScrape": "2026-05-21T10:27:23.658568924-03:00"
+        }
+    ],
+    "counts": {
+        "n8n": 1,
+        "pushgateway_wfdb01": 1
+    }
+}

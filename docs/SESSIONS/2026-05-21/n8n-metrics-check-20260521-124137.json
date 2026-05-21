@@ -1,0 +1,44 @@
+{
+    "collected_at": "2026-05-21T12:41:37Z",
+    "context": {
+        "n8n_upgrade_version": "2.19.5",
+        "n8n_upgrade_date": "2026-05-08",
+        "objective": "Coletar dados no Prometheus para verificar desempenho apos atualizacao"
+    },
+    "checks": [
+        {
+            "url": "https://n8n.vya.digital",
+            "status": "fail",
+            "metrics_found": [],
+            "metrics_missing": [
+                "n8n_scaling_mode_queue_jobs_active",
+                "n8n_scaling_mode_queue_jobs_waiting",
+                "n8n_scaling_mode_queue_jobs_completed",
+                "n8n_scaling_mode_queue_jobs_failed"
+            ],
+            "raw_count": 0,
+            "checked_at": "2026-05-21T12:41:13.504604+00:00",
+            "error": "<urlopen error [Errno -2] Name or service not known>",
+            "exit_code": 1
+        },
+        {
+            "url": "https://testn8n.vya.digital",
+            "status": "pass",
+            "metrics_found": [
+                "n8n_scaling_mode_queue_jobs_active",
+                "n8n_scaling_mode_queue_jobs_waiting",
+                "n8n_scaling_mode_queue_jobs_completed",
+                "n8n_scaling_mode_queue_jobs_failed"
+            ],
+            "metrics_missing": [],
+            "raw_count": 47,
+            "checked_at": "2026-05-21T12:41:37.458072+00:00",
+            "error": null,
+            "exit_code": 0
+        }
+    ],
+    "notes": [
+        "VictoriaMetrics continua inacessivel externamente sem tunel SSH para rede interna Docker",
+        "Coleta Prometheus para producao permanece bloqueada por acesso/roteamento"
+    ]
+}
